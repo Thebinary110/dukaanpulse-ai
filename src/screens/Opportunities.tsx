@@ -7,14 +7,14 @@ import { EvidenceTable } from '../components/opportunity/EvidenceTable';
 import { AssumptionsPanel } from '../components/opportunity/AssumptionsPanel';
 import { OptionsComparison } from '../components/opportunity/OptionsComparison';
 import { StatusChip } from '../components/StatusChip';
-import { getDemoData } from '../data/demoData';
+import { getDemoData, opportunityShortLabel } from '../data/demoData';
 import { averageBasketOf, basketByCustomer, createCampaignDraft, planAudience } from '../domain/campaign';
 import { evaluateOptions, recommend, type Objective, type OptionSettings } from '../domain/decision';
 import { flaggingGapDays } from '../domain/detectors/evidence';
 import { MIN_HISTORY_SPAN_DAYS, scoreRegulars } from '../domain/detectors/lapsedRegulars';
 import type { LapsedOpportunitySummary } from '../domain/detectors/lapsedSummary';
 import { formatCount, formatDays, formatINR, formatPercent } from '../domain/format';
-import type { CampaignAssumptions } from '../domain/types';
+import type { CampaignAssumptions, CampaignDraft } from '../domain/types';
 import { useWorkspace } from '../state/WorkspaceContext';
 import type { ScenarioStatus } from '../state/scenario';
 
@@ -76,6 +76,7 @@ export function Opportunities() {
       status={scenario.status}
       rejectionReason={scenario.rejection?.reason ?? null}
       draftOffer={scenario.draft?.interventionId ?? null}
+      currentDraft={scenario.draft}
       explorer={explorer}
       onSettings={(settings) => updateExplorer({ settings })}
       onObjective={(objective: Objective) => updateExplorer({ objective })}
@@ -99,6 +100,7 @@ interface ExplorerProps {
   status: ScenarioStatus;
   rejectionReason: string | null;
   draftOffer: string | null;
+  currentDraft: CampaignDraft | null;
   explorer: WorkspaceApi['explorer'];
   onSettings: (s: WorkspaceApi['explorer']['settings']) => void;
   onObjective: (o: Objective) => void;
@@ -145,6 +147,8 @@ function Explorer(props: ExplorerProps) {
       assumptions: explorer.settings.assumptions,
       audience,
       merchantName: dataset.merchant.name,
+      name: `Win back ${opportunityShortLabel().toLowerCase()}`,
+      previous: status === 'drafting' ? props.currentDraft : null,
     });
     const result = dispatch(status === 'drafting' ? { type: 'UPDATE_DRAFT', draft } : { type: 'START_DRAFT', draft });
     if (result.ok) props.navigate('/campaigns');

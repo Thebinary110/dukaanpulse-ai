@@ -14,6 +14,9 @@
  *
  * Pure TypeScript with no React; timestamps are passed in so tests stay deterministic.
  */
+import { nameProblems, offerRuleProblems } from '../domain/campaign';
+import { validateMessage } from '../domain/message';
+import { deriveSeed } from '../domain/rng';
 import type { CampaignDraft, SimulatedOutcome } from '../domain/types';
 
 export type ScenarioStatus =
@@ -84,6 +87,7 @@ export function draftFingerprint(draft: CampaignDraft): string {
   return JSON.stringify([
     draft.opportunityId,
     draft.interventionId,
+    draft.name,
     draft.offer,
     draft.message,
     [...draft.treatmentIds].sort(),
@@ -99,6 +103,8 @@ export function validateDraft(draft: CampaignDraft, opportunityId: string): stri
   if (draft.opportunityId !== opportunityId) problems.push('Draft belongs to a different opportunity.');
   if (draft.offer.kind === 'none') problems.push('"Do nothing" cannot be sent as a campaign.');
   if (draft.message.trim().length === 0) problems.push('Message is empty.');
+  else problems.push(...validateMessage(draft.message, draft.offer).map((i) => i.text));
+  problems.push(...nameProblems(draft.name), ...offerRuleProblems(draft.offer));
   if (draft.treatmentIds.length === 0) problems.push('No customers selected to receive the offer.');
   if (draft.holdoutIds.length === 0) problems.push('A holdout group is required to measure the result.');
   const holdout = new Set(draft.holdoutIds);
@@ -219,6 +225,11 @@ export function canExecute(state: ScenarioState): boolean {
 
 export function isDraftEditable(state: ScenarioState): boolean {
   return state.status === 'drafting';
+}
+
+/** Seed for the simulated run: fixed per dataset and exact approved configuration, so reruns are identical. */
+export function simulationSeed(datasetSeed: number, draft: CampaignDraft): number {
+  return deriveSeed(datasetSeed, draftFingerprint(draft));
 }
 
 export function hasMeasuredOutcome(state: ScenarioState): state is ScenarioState & { outcome: SimulatedOutcome } {

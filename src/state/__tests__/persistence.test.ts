@@ -29,6 +29,8 @@ describe('restoreWorkspace', () => {
     ['another opportunity', JSON.stringify({ scenario: { ...drafting(), opportunityId: 'other' }, explorer })],
     ['unknown status', JSON.stringify({ scenario: { ...drafting(), status: 'sent' }, explorer })],
     ['NaN assumption', JSON.stringify({ scenario: drafting(), explorer: { ...explorer, settings: { ...defaults, assumptions: { ...defaults.assumptions, grossMarginRate: 'x' } } } })],
+    ['draft without a name (older format)', JSON.stringify({ scenario: { ...drafting(), draft: { ...makeDraft(), name: undefined } }, explorer })],
+    ['draft with non-numeric offer', JSON.stringify({ scenario: { ...drafting(), draft: { ...makeDraft(), offer: { ...makeDraft().offer, valuePaise: 'lots' } } }, explorer })],
     ['unknown option', JSON.stringify({ scenario: drafting(), explorer: { ...explorer, selectedId: 'mystery' } })],
   ])('rejects %s', (_label, raw) => {
     expect(restoreWorkspace(raw as string | null, 'opp-1', defaults)).toBeNull();

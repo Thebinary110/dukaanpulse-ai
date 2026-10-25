@@ -42,6 +42,14 @@ function validSettings(v: unknown, expected: DecisionSettings): v is DecisionSet
   return assumptionsOk && optionsOk;
 }
 
+function validDraft(d: unknown): boolean {
+  if (!isObject(d) || !isObject(d.offer) || !isObject(d.assumptions)) return false;
+  const strings = ['opportunityId', 'interventionId', 'name', 'message'].every((k) => typeof d[k] === 'string');
+  const ids = [d.treatmentIds, d.holdoutIds].every((a) => Array.isArray(a) && a.every((x) => typeof x === 'string'));
+  const offer = ['valuePaise', 'costPerRedemptionPaise', 'minSpendPaise'].every((k) => Number.isFinite((d.offer as Record<string, unknown>)[k]));
+  return strings && ids && offer && Number.isFinite(d.assumedReturnRate);
+}
+
 /**
  * Returns the saved workspace if it belongs to the current opportunity and is well-formed,
  * otherwise null (the caller starts fresh).
@@ -57,7 +65,8 @@ export function restoreWorkspace(raw: string | null, opportunityId: string, defa
   if (!isObject(parsed) || !isObject(parsed.scenario) || !isObject(parsed.explorer)) return null;
   const s = parsed.scenario;
   if (s.opportunityId !== opportunityId || !STATUSES.includes(s.status as ScenarioStatus)) return null;
-  if (s.draft !== null && (!isObject(s.draft) || !Array.isArray(s.draft.treatmentIds) || !Array.isArray(s.draft.holdoutIds))) return null;
+  if (s.draft !== null && !validDraft(s.draft)) return null;
+  if (s.approval !== null && !isObject(s.approval)) return null;
   const e = parsed.explorer;
   if (!validSettings(e.settings, defaults)) return null;
   if (e.objective !== 'profit' && e.objective !== 'customers') return null;

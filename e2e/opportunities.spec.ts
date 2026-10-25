@@ -158,15 +158,17 @@ test.describe('Opportunity Explorer', () => {
 
     await expect(page).toHaveURL(/\/campaigns$/);
     await expect(page.getByTestId('scenario-status')).toContainText('Draft in progress');
-    await expect(page.getByTestId('draft-offer')).toContainText('Free add-on');
-    await expect(page.getByTestId('draft-uplift')).toHaveText('18%');
-    await expect(page.getByTestId('draft-margin')).toHaveText('60%');
-    await expect(page.getByTestId('draft-summary')).toContainText(`${audience.treatmentIds.length} customers`);
+    const overview = page.getByTestId('campaign-overview');
+    await expect(overview).toContainText('Free add-on');
+    const economics = page.getByTestId('economics-panel');
+    await expect(economics).toContainText('+18%');
+    await expect(economics).toContainText('60%');
+    await expect(page.getByTestId('overview-recipients')).toHaveText(String(audience.treatmentIds.length));
 
     await page.reload();
-    await expect(page.getByTestId('draft-offer')).toContainText('Free add-on');
+    await expect(page.getByTestId('campaign-overview')).toContainText('Free add-on');
 
-    await page.getByRole('link', { name: 'Back to the comparison' }).click();
+    await page.getByRole('link', { name: 'Back to opportunity review' }).click();
     await expect(page.getByTestId('scenario-status')).toContainText('Draft in progress');
     await expect(page.getByRole('radio', { name: /Free add-on/ })).toBeChecked();
     await expect(page.getByLabel('Gross margin on sales')).toHaveValue('60');
@@ -187,7 +189,7 @@ test.describe('Opportunity Explorer', () => {
 
     await page.getByRole('link', { name: 'Campaign Studio' }).click();
     await expect(page.getByTestId('no-draft')).toContainText('dismissed');
-    await expect(page.getByTestId('draft-summary')).toHaveCount(0);
+    await expect(page.getByTestId('campaign-overview')).toHaveCount(0);
 
     await page.getByRole('link', { name: 'Opportunities' }).first().click();
     await page.getByTestId('rejected-banner').getByRole('button', { name: 'Reopen review' }).click();

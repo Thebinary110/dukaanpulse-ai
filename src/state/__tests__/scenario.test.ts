@@ -4,6 +4,7 @@ import {
   currentStepIndex,
   initialScenario,
   scenarioReducer,
+  simulationSeed,
   transition,
   type ScenarioEvent,
   type ScenarioState,
@@ -136,6 +137,13 @@ describe('scenario state machine', () => {
       expect(submitWith({ treatmentIds: ['C-1', 'C-2'], holdoutIds: ['C-2'] }).ok).toBe(false);
     });
 
+    it('rejects a message that misstates the offer, an unnamed draft, or an invalid discount', () => {
+      expect(submitWith({ message: 'Hi! Get ₹50 off your next order of ₹200 or more at Sunrise Bakery.' }).ok).toBe(false);
+      expect(submitWith({ name: '' }).ok).toBe(false);
+      const offer = { kind: 'flat_discount' as const, valuePaise: 15_000, costPerRedemptionPaise: 15_000, minSpendPaise: 20_000 };
+      expect(submitWith({ offer, message: 'Hi! Get ₹150 off your next order of ₹200 or more at Sunrise Bakery.' }).ok).toBe(false);
+    });
+
     it('rejects a draft for a different opportunity', () => {
       expect(transition(STATES.reviewing, { type: 'START_DRAFT', draft: makeDraft({ opportunityId: 'other' }) }).ok).toBe(false);
     });
@@ -157,6 +165,12 @@ describe('scenario state machine', () => {
     expect(next.status).toBe('detected');
     expect(next.lastError).toMatch(/approval/);
     expect(scenarioReducer(next, { type: 'REVIEW' }).lastError).toBeNull();
+  });
+
+  it('derives a stable simulation seed from the exact approved configuration', () => {
+    expect(simulationSeed(1, draft)).toBe(simulationSeed(1, { ...draft }));
+    expect(simulationSeed(1, draft)).not.toBe(simulationSeed(1, { ...draft, name: 'Other' }));
+    expect(simulationSeed(1, draft)).not.toBe(simulationSeed(2, draft));
   });
 
   it('maps rejection to no active step', () => {

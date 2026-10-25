@@ -158,6 +158,8 @@ export interface CampaignAssumptions {
 export interface CampaignDraft {
   opportunityId: string;
   interventionId: string;
+  /** Internal campaign name; never shown to customers. */
+  name: string;
   offer: Offer;
   message: string;
   treatmentIds: string[];

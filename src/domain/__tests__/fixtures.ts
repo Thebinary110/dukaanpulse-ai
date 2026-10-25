@@ -36,6 +36,7 @@ export function makeDraft(overrides: Partial<CampaignDraft> = {}): CampaignDraft
   return {
     opportunityId: 'opp-1',
     interventionId: intervention.id,
+    name: 'Win back morning regulars',
     offer: intervention.offer,
     message: 'We miss you at Sunrise Bakery! ₹30 off your next order of ₹200+.',
     treatmentIds: ['C-0001', 'C-0002', 'C-0003', 'C-0004'],

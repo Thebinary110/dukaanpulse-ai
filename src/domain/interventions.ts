@@ -69,23 +69,6 @@ export function describeOffer(offer: Offer): string {
   }
 }
 
-/** Default message text for a win-back offer. Shown as a preview only; never sent. */
-export function defaultCampaignMessage(offer: Offer, merchantName: string, windowDays: number): string {
-  const greeting = `We've missed you at ${merchantName}!`;
-  switch (offer.kind) {
-    case 'flat_discount':
-      return `${greeting} Enjoy ${formatINR(offer.valuePaise)} off your next order${
-        offer.minSpendPaise > 0 ? ` of ${formatINR(offer.minSpendPaise)} or more` : ''
-      }. Valid for ${windowDays} days.`;
-    case 'free_item':
-      return `${greeting} Your next order comes with a free cookie on us. Valid for ${windowDays} days.`;
-    case 'loyalty_stamp':
-      return `${greeting} Earn double stamps on your loyalty card with your next order. Valid for ${windowDays} days.`;
-    case 'none':
-      return '';
-  }
-}
-
 export function getIntervention(id: string): Intervention {
   const found = INTERVENTIONS.find((i) => i.id === id);
   if (!found) throw new Error(`Unknown intervention: ${id}`);

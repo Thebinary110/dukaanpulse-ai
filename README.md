@@ -27,7 +27,14 @@ and measures the result against a holdout group.
   - a four-option comparison with validated, editable assumptions;
   - a ranked recommendation, with "Draft campaign" and "Dismiss opportunity".
   The draft is stored in shared state; Campaign Studio currently shows a summary of it.
-- **Next:** the full Campaign Studio (Stage 4) and Results (Stage 5).
+- **Stage 4 (Campaign Studio):** done. `/campaigns` loads the draft from shared state and offers:
+  - structured offer rules that drive the economics;
+  - an editable message with live preview, character count and offer-terms validation;
+  - an audience review with disjoint treatment and holdout groups;
+  - an economics panel that separates observed, assumed and estimated values;
+  - an approval checklist driven by real validation, plus a confirmation dialog;
+  - a deterministic, skippable simulated run, and a restart action.
+- **Next:** Results analysis (Stage 5). Results currently shows only the headline simulated outcome.
 
 ## Requirements
 
@@ -171,6 +178,21 @@ customers minus a 20% holdout. The ranking policy is documented in the file:
 - **Inputs:** they are validated (`parseBounded`, `optionProblems`). Invalid values are never committed, and an
   option with inconsistent settings (for example a discount larger than half its minimum spend) is not ranked.
 
+**Campaign Studio** (`campaign.ts`, `message.ts`).
+- **Offer rules vs message:** the structured offer is the only input to the economics. The message is copy: it
+  must state the discount and minimum order (or the reward), and it must not mention any other ₹ amount or a
+  percentage (`validateMessage`). Changing the offer regenerates an unedited message and flags an edited one.
+- **Checks:** `checkDraft` combines name, offer rules, message and audience checks. `SUBMIT_FOR_APPROVAL` in the
+  state machine re-checks the name, offer rules and message, so the UI can't be bypassed.
+- **Approval:** confirming runs `SUBMIT_FOR_APPROVAL` then `APPROVE`. The approval stores a fingerprint of the
+  exact draft; `START_EXECUTION` refuses if the draft no longer matches.
+- **Simulation seed:** derived from the dataset seed plus that fingerprint (`simulationSeed`), so the same
+  approved configuration always gives the same simulated outcome. `simulationFrame` steps through queued →
+  delivered → day 1…14 → redemptions → ready; "Skip to the end" jumps to the last frame, and `COMPLETE` stores
+  the outcome.
+- **Restart demo:** removes only this app's `sessionStorage` key. Saved state that fails validation is discarded,
+  and the Studio says so.
+
 **Shared workspace state** (`state/WorkspaceContext.tsx`, `state/persistence.ts`).
 - **Contents:** the scenario state machine plus the explorer's settings, goal and selected option.
 - **Storage:** kept in React context and mirrored to `sessionStorage`. On load it is validated and discarded if it
@@ -200,7 +222,11 @@ Every invalid transition is refused and tested.
 
 ## Known limitations
 
-- **Screens:** Campaign Studio shows only a summary of the draft, and Results is still a placeholder (Stages 4–5).
+- **Results:** only the headline simulated outcome so far (Stage 5).
+- **Simulated outcome vs estimate:** the default configuration's simulated draw returns 4 of 27 against 0 of 7
+  held back, below the expected 8.1. This is one deterministic random draw, with ±30% uncertainty on the assumed
+  rate. With 7 held-back customers the comparison is noisy, and the UI says so.
+- **Approval identity:** approval is recorded as "Sunrise Bakery owner (demo)". There is no authentication.
 - **Economics window:** the model covers a single 14-day campaign window. It does not value a won-back
   regular's future months, so net profit figures are small next to the monthly exposure. This is deliberate and
   conservative.

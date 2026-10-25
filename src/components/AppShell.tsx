@@ -2,7 +2,7 @@ import * as Dialog from '@radix-ui/react-dialog';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import { CalendarDays, Menu, ShieldCheck, Store, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { NavLink, Outlet, useLocation, useMatches } from 'react-router';
+import { NavLink, Outlet, ScrollRestoration, useLocation, useMatches } from 'react-router';
 import { getDemoData } from '../data/demoData';
 import { Breadcrumbs, type Crumb } from './Breadcrumbs';
 import { NAV_ITEMS } from './navItems';
@@ -104,6 +104,7 @@ export function AppShell() {
 
   return (
     <Tooltip.Provider delayDuration={200}>
+      <ScrollRestoration />
       <a
         href="#main"
         className="sr-only z-50 rounded-md bg-accent px-3 py-2 text-sm font-medium text-on-accent focus:not-sr-only focus:fixed focus:top-3 focus:left-3"
