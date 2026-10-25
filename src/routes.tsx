@@ -1,6 +1,7 @@
 import { createBrowserRouter } from 'react-router';
 import { AppShell, type RouteHandle } from './components/AppShell';
 import { opportunityShortLabel } from './data/demoData';
+import { Ask } from './screens/Ask';
 import { CampaignStudio } from './screens/CampaignStudio';
 import { NotFound } from './screens/NotFound';
 import { Opportunities } from './screens/Opportunities';
@@ -15,6 +16,7 @@ export const router = createBrowserRouter([
     element: <AppShell />,
     children: [
       { index: true, element: <Overview />, handle: handle('Overview') },
+      { path: 'ask', element: <Ask />, handle: handle('Ask DukaanPulse') },
       {
         path: 'opportunities',
         element: <Opportunities />,

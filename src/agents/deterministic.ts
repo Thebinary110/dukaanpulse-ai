@@ -72,6 +72,13 @@ export function followUpsFor(intent: Intent, outcomes: readonly ToolOutcome[], r
 
 // ── Tool selection ─────────────────────────────────────────────────────────
 
+/** The comparison window the merchant asked for: a week, a quarter, or (by default) a month. */
+export function rangeFromQuestion(question: string): 7 | 30 | 90 {
+  if (/\b(week|weekly|7 days|seven days)\b/i.test(question)) return 7;
+  if (/\b(quarter|90 days|three months|3 months)\b/i.test(question)) return 90;
+  return 30;
+}
+
 export function toolsFor(agent: SpecialistId, intent: Intent, ctx: ConversationContext, question: string): ToolCallRequest[] {
   const offer = ctx.offer;
   const offerArgs: Record<string, unknown> = {};
@@ -79,7 +86,7 @@ export function toolsFor(agent: SpecialistId, intent: Intent, ctx: ConversationC
   if (offer.discountRupees !== undefined) offerArgs.discountRupees = offer.discountRupees;
   if (offer.minSpendRupees !== undefined) offerArgs.minSpendRupees = offer.minSpendRupees;
   if (offer.upliftPercent !== undefined) offerArgs.upliftPercent = offer.upliftPercent;
-  const range = /\b(week|7 days|seven days)\b/i.test(question) ? 7 : /\b(quarter|90 days|three months|3 months)\b/i.test(question) ? 90 : 30;
+  const range = rangeFromQuestion(question);
 
   switch (agent) {
     case 'business_analyst':

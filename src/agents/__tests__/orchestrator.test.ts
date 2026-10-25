@@ -162,7 +162,7 @@ describe('runtime policies', () => {
     const ctx = { ...emptyContext(), offer: { interventionId: 'win-back-30', discountRupees: 20 } };
     const out = applyPolicies('growth_strategist', 'offer_what_if', [{ tool: 'compare_interventions', args: {} }, { tool: 'blanket_discount', args: { discountRupees: 30 } }], ctx, 'What if ₹20?');
     expect(out[0]!.args).toEqual({ interventionId: 'win-back-30', discountRupees: 20 });
-    expect(out[1]!.args).toEqual({ discountRupees: 30 }); // not an offer-targeting tool
+    expect(out[1]!.args).toEqual({ discountRupees: 30, rangeDays: 30 }); // not offer-targeting; window from the question
     // A different option chosen by the model gives way to the one the merchant asked about.
     const other = applyPolicies('growth_strategist', 'offer_what_if', [{ tool: 'compare_interventions', args: { interventionId: 'free-addon', upliftPercent: 30 } }], ctx, 'x');
     expect(other[0]!.args).toEqual({ interventionId: 'win-back-30', discountRupees: 20 });
@@ -172,6 +172,24 @@ describe('runtime policies', () => {
     // Without stated terms, the model may still choose which option to look at, but not amounts.
     const free = applyPolicies('growth_strategist', 'offer_strategy', [{ tool: 'compare_interventions', args: { interventionId: 'free-addon', upliftPercent: 50 } }], emptyContext(), 'x');
     expect(free[0]!.args).toEqual({ interventionId: 'free-addon' });
+  });
+
+  it('takes the comparison window from the question, not the model', async () => {
+    const { applyPolicies } = await import('../orchestrator');
+    const req = [{ tool: 'daypart_breakdown', args: { rangeDays: 7 } }];
+    expect(applyPolicies('business_analyst', 'daypart', req, emptyContext(), 'Why are morning sales down?')[0]!.args).toEqual({ rangeDays: 30 });
+    expect(applyPolicies('business_analyst', 'daypart', req, emptyContext(), 'Why are morning sales down this week?')[0]!.args).toEqual({ rangeDays: 7 });
+  });
+
+  it('removes repeated findings', async () => {
+    const { dedupeFindings } = await import('../orchestrator');
+    const f = (id: string, claim: string) => ({ id, agent: 'customer_intelligence' as const, type: 'observed' as const, claim, citations: [] });
+    const out = dedupeFindings([
+      f('a', '{{c1.flagged_customers}} regulars show an unusually long absence, a median of {{c1.median_current_gap}}.'),
+      f('b', 'Among {{c1.regulars_checked}} regulars, {{c1.flagged_customers}} show an unusually long absence with a median of {{c1.median_current_gap}}.'),
+      f('c', '{{c1.dominant_daypart_share}} of their past visits were in the morning.'),
+    ]);
+    expect(out.map((x) => x.id)).toEqual(['a', 'c']);
   });
 
   it('always gives an action request a draft proposal', async () => {

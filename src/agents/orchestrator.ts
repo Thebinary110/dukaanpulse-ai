@@ -19,6 +19,7 @@ import {
   headlineFor,
   planFor,
   synthesisFindings,
+  rangeFromQuestion,
   toolsFor,
 } from './deterministic';
 import { ModelError, type ModelClient } from './llm';
@@ -303,7 +304,7 @@ export async function runQuestion(question: string, context: ConversationContext
 
   // ── Answer ──
   const index = indexMetrics(outcomes);
-  const finalFindings = [...reports.flatMap((r) => r.findings), ...synthesis.filter((f) => !reviewFinding(f, index).some((i) => i.severity === 'error'))];
+  const finalFindings = dedupeFindings([...reports.flatMap((r) => r.findings), ...synthesis.filter((f) => !reviewFinding(f, index).some((i) => i.severity === 'error'))]);
   const premise = intent === 'revenue_change' || intent === 'daypart' ? contradictedPremise(question, outcomes) : null;
   const answer: Answer = {
     headline: renderClaim(headline, index),
@@ -342,18 +343,39 @@ export async function runQuestion(question: string, context: ConversationContext
 // ── Runtime policies on tool calls ─────────────────────────────────────────
 
 const OFFER_TOOLS = new Set(['compare_interventions', 'prepare_campaign_draft']);
+const RANGE_TOOLS = new Set(['revenue_comparison', 'revenue_drivers', 'daypart_breakdown', 'customer_mix', 'blanket_discount']);
+
+/** Drops findings that repeat an earlier one (same wording, or nearly the same words). */
+export function dedupeFindings(findings: readonly Finding[]): Finding[] {
+  const words = (s: string) => new Set(s.toLowerCase().replace(/\{\{[^}]+\}\}/g, ' n ').split(/[^a-z]+/).filter((w) => w.length > 2));
+  const kept: { f: Finding; w: Set<string> }[] = [];
+  for (const f of findings) {
+    const w = words(f.claim);
+    const similar = kept.some((k) => {
+      if (k.f.type !== f.type) return false;
+      const shared = [...w].filter((x) => k.w.has(x)).length;
+      return shared / Math.max(1, Math.min(w.size, k.w.size)) >= 0.8;
+    });
+    if (!similar) kept.push({ f, w });
+  }
+  return kept.map((k) => k.f);
+}
 
 /**
  * Policies the runtime applies to any engine's tool choice:
  * - Offer amounts come only from the merchant: amounts a model puts in offer-tool arguments are
  *   discarded, and the terms the merchant stated (this turn or earlier) are filled in. A model
  *   can neither invent an amount nor silently drop one.
+ * - The comparison window comes from the merchant's question (a month unless they say a week or
+ *   a quarter); a model cannot quietly switch to a window that tells a different story.
  * - An action request always yields a draft proposal for the merchant to review, so the
  *   Action Planner's tool list always includes prepare_campaign_draft.
  */
 export function applyPolicies(agent: SpecialistId, intent: Intent, requests: ToolCallRequest[], ctx: ConversationContext, question: string): ToolCallRequest[] {
   const offer = ctx.offer;
+  const range = rangeFromQuestion(question);
   let out = requests.map((r) => {
+    if (RANGE_TOOLS.has(r.tool)) return { ...r, args: { ...(r.args ?? {}), rangeDays: range } };
     if (!OFFER_TOOLS.has(r.tool)) return r;
     const { discountRupees: _d, minSpendRupees: _m, upliftPercent: _u, ...rest } = r.args ?? {};
     const args: Record<string, unknown> = { ...rest };
