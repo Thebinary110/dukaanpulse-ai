@@ -34,7 +34,15 @@ and measures the result against a holdout group.
   - an economics panel that separates observed, assumed and estimated values;
   - an approval checklist driven by real validation, plus a confirmation dialog;
   - a deterministic, skippable simulated run, and a restart action.
-- **Next:** Results analysis (Stage 5). Results currently shows only the headline simulated outcome.
+- **Stage 5 (Results & learning):** done. `/results` shows:
+  - offer-group and holdout return counts with their denominators and 95% Wilson ranges;
+  - spend, extra customers and simulated net profit, next to the frozen pre-run estimate;
+  - an estimate-vs-simulated table;
+  - a 500-run profit distribution with this run marked;
+  - data-driven reasons for divergence;
+  - a prominent small-sample warning;
+  - a rule-based next step (repeat with a larger test / revise the offer / stop);
+  - the approved configuration and a session learning history.
 
 ## Requirements
 
@@ -193,6 +201,20 @@ customers minus a 20% holdout. The ranking policy is documented in the file:
 - **Restart demo:** removes only this app's `sessionStorage` key. Saved state that fails validation is discarded,
   and the Studio says so.
 
+**Results & learning** (`results.ts`, `stats.ts`, `state/history.ts`).
+- **Frozen record:** when a run completes, a `LearningRecord` is frozen. It holds the estimate (from the approved
+  draft), the simulated outcome, and a 500-run distribution of the same configuration (`simulateProfitDistribution`,
+  seeded from the run).
+- **History:** records go into a separate session key, `dukaanpulse.history.v1` (at most 10). Restart demo keeps
+  them; "Clear history" removes them.
+- **Next-step rules:**
+  1. **Stop** if the median simulated run loses money.
+  2. **Revise the offer** if the estimate loses money at half the uplift, or fewer than 60% of runs are profitable.
+  3. Otherwise **repeat with a larger test**. Power comes from a two-proportion normal approximation; about 62
+     customers per group are needed for 80% power to detect 10% → 30%. The 27/7 test has about 13%.
+- **No significance claims:** the page computes no p-value and claims no significance. The single run is evidence,
+  never the decision on its own.
+
 **Shared workspace state** (`state/WorkspaceContext.tsx`, `state/persistence.ts`).
 - **Contents:** the scenario state machine plus the explorer's settings, goal and selected option.
 - **Storage:** kept in React context and mirrored to `sessionStorage`. On load it is validated and discarded if it
@@ -222,7 +244,9 @@ Every invalid transition is refused and tested.
 
 ## Known limitations
 
-- **Results:** only the headline simulated outcome so far (Stage 5).
+- **Results statistics:** power and sample size use normal approximations (exact tests would be more conservative
+  at these sizes). The "larger test" can't actually be run in the demo, because the flagged group is fixed at 34.
+  Learning history is per browser tab session.
 - **Simulated outcome vs estimate:** the default configuration's simulated draw returns 4 of 27 against 0 of 7
   held back, below the expected 8.1. This is one deterministic random draw, with ±30% uncertainty on the assumed
   rate. With 7 held-back customers the comparison is noisy, and the UI says so.
@@ -233,7 +257,7 @@ Every invalid transition is refused and tested.
 - **Downside check:** "If it works half as well" is a simple sensitivity check, not a calibrated probability.
 - **Revenue trend:** daily comparison lines are aligned by position, not by weekday. In the 30-day view a Saturday
   can be compared with a Monday; the tooltip names both dates.
-- **Bundle size:** the JavaScript bundle is about 840 kB (250 kB gzipped; mostly Recharts), and Vite warns about chunk size. This doesn't
+- **Bundle size:** the JavaScript bundle is about 1 MB (290 kB gzipped; mostly Recharts), and Vite warns about chunk size. This doesn't
   matter for a local demo.
 - **Detector:** it detects absence only. A customer who drops from 3 visits/week to 1 is not flagged; recall on
   lapsed customers who made a stray visit is low (see above). It does not correct for multiple testing; instead,
