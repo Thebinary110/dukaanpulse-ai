@@ -10,6 +10,7 @@
  * Environment:
  *   DUKAANPULSE_OLLAMA_URL  default http://127.0.0.1:11434
  *   DUKAANPULSE_MODEL       default qwen3.6:35b
+ *   DUKAANPULSE_KEEP_ALIVE  how long Ollama keeps the model loaded, default 2h
  */
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { Plugin } from 'vite';
@@ -72,6 +73,8 @@ export function llmProxy(): Plugin {
         model,
         stream: false,
         think: false,
+        // Keep the model resident between questions so a live demo does not pay reload time.
+        keep_alive: process.env.DUKAANPULSE_KEEP_ALIVE ?? '2h',
         format: parsed.format,
         options: { temperature: 0, num_predict: 900 },
         messages: messages.map((m: { role?: unknown; content?: unknown }) => ({

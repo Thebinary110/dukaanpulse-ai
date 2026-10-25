@@ -154,6 +154,21 @@ describe('orchestrator with a model client', () => {
     expect(run.reports.length).toBeGreaterThan(0);
   });
 
+  it('drafts exactly the recommended offer even if the model picks another option', async () => {
+    const card = (await runQuestion('What should I offer the lapsed regulars?', emptyContext(), tools, { client: null })).answer.recommendation!;
+    const client = new FakeClient({
+      plan: () => ({ intent: 'action_request', steps: [{ agent: 'action_planner', task: 'Prepare a draft.' }], rationale: '' }),
+      tools: () => ({ toolCalls: [{ tool: 'prepare_campaign_draft', args: { interventionId: 'free-addon' } }] }),
+      findings: goodFindings,
+      headline: () => ({ headline: 'A draft is ready for your review.' }),
+    });
+    const run = await runQuestion(card.nextStep!.ask!, emptyContext(), tools, { client });
+    expect(card.action).toBe('Targeted discount: ₹30 off on ₹200+');
+    expect(run.action?.draft.interventionId).toBe('win-back-30');
+    expect(run.action?.draft.offer).toMatchObject({ valuePaise: 3000, minSpendPaise: 20_000 });
+    expect(run.action?.label).toBe(card.action);
+  });
+
   it('stops cleanly when cancelled', async () => {
     const controller = new AbortController();
     const client = new FakeClient({ plan: () => ({ intent: 'daypart', steps: [{ agent: 'business_analyst', task: 'x' }], rationale: '' }), tools: () => ({ toolCalls: [] }) }, 200);

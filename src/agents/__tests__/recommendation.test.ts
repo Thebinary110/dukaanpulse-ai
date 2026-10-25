@@ -22,7 +22,14 @@ describe('recommendation card', () => {
     expect(card.assumptions.map((a) => a.value)).toEqual(expect.arrayContaining([value(compare, 'baseline_return'), value(compare, 'gross_margin')]));
     expect(card.alternatives.map((a) => a.option)).toEqual(expect.arrayContaining(['Do nothing: No offer']));
     expect(card.evidence[0]!.text).toContain('34 of 209 regular customers');
-    expect(card.nextStep?.ask).toBe('Prepare a draft campaign with this offer');
+    expect(card.nextStep?.ask).toBe('Prepare a draft campaign with ₹30 off on ₹200+');
+  });
+
+  it('names the recommended offer in the next step, whichever option wins', async () => {
+    const { offerTerms } = await import('../recommendation');
+    expect(offerTerms('Targeted discount: ₹30 off on ₹200+')).toBe('₹30 off on ₹200+');
+    expect(offerTerms('Free add-on: Free cookie with any order')).toBe('free cookie with any order');
+    expect(offerTerms('Loyalty bonus: Double loyalty stamps')).toBe('double loyalty stamps');
   });
 
   it('adds the discount-for-everyone alternative when it was evaluated', () => {

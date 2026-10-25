@@ -175,6 +175,15 @@ test.describe('Ask DukaanPulse', () => {
     await expect(page.getByTestId('no-draft')).toBeVisible();
   });
 
+  test('?engine=rules opens in rules-only mode even when the model is available', async ({ page }) => {
+    await scriptedModel(page);
+    await page.goto('/ask?engine=rules');
+    await expect(page.getByRole('radio', { name: 'Rules only' })).toBeChecked();
+    await expect(page.getByTestId('engine-line')).toContainText('rule-based engine');
+    const turn = await ask(page, 'Why did revenue decline?');
+    await expect(turn.getByTestId('turn-engine')).toContainText('Rule-based engine');
+  });
+
   test('does not force a recommendation on a diagnostic question', async ({ page }) => {
     await noModel(page);
     await page.goto('/ask');

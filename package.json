@@ -15,7 +15,8 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "check": "npm run typecheck && npm test && npm run build",
-    "eval:agents": "DUKAANPULSE_LLM_EVAL=1 vitest run src/agents/__tests__/eval.llm.test.ts"
+    "eval:agents": "DUKAANPULSE_LLM_EVAL=1 vitest run src/agents/__tests__/eval.llm.test.ts",
+    "warmup": "node scripts/warmup.mjs"
   },
   "dependencies": {
     "@fontsource-variable/inter": "5.3.0",

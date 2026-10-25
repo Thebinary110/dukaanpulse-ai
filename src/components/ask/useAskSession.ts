@@ -17,9 +17,9 @@ export interface Turn {
   engineLabel: string;
 }
 
-export function useAskSession(toolContext: () => ToolContext) {
+export function useAskSession(toolContext: () => ToolContext, initialEngine: EngineChoice = 'auto') {
   const [turns, setTurns] = useState<Turn[]>([]);
-  const [engine, setEngine] = useState<EngineChoice>('auto');
+  const [engine, setEngine] = useState<EngineChoice>(initialEngine);
   const [model, setModel] = useState<ModelStatus | null>(null);
   const context = useRef<ConversationContext>(emptyContext());
   const controller = useRef<AbortController | null>(null);

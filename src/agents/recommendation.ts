@@ -75,6 +75,12 @@ function revenueEvidence(outcomes: readonly ToolOutcome[]): { text: string; refs
   return out;
 }
 
+/** "Targeted discount: ₹30 off on ₹200+" → "₹30 off on ₹200+" (the terms the parser understands). */
+export function offerTerms(recommended: string): string {
+  const terms = recommended.includes(': ') ? recommended.slice(recommended.indexOf(': ') + 2) : recommended;
+  return /^[A-Z]/.test(terms) ? `${terms.charAt(0).toLowerCase()}${terms.slice(1)}` : terms;
+}
+
 export function buildRecommendation(intent: Intent, outcomes: readonly ToolOutcome[]): RecommendationCard | null {
   const compare = latest(outcomes, 'compare_interventions');
   const lapse = latest(outcomes, 'lapse_evidence');
@@ -144,7 +150,8 @@ export function buildRecommendation(intent: Intent, outcomes: readonly ToolOutco
       alternatives,
       uncertain,
       limitations: compare.limitations.filter((l) => !SYNTHETIC_PREFIX.test(l)),
-      nextStep: isAction ? { label: 'Prepare this as a draft', ask: 'Prepare a draft campaign with this offer', to: '/opportunities' } : { label: 'Review the comparison', to: '/opportunities' },
+      // The follow-up spells out the offer's own terms, so the draft cannot drift to a different option.
+      nextStep: isAction ? { label: 'Prepare this as a draft', ask: `Prepare a draft campaign with ${offerTerms(rec)}`, to: '/opportunities' } : { label: 'Review the comparison', to: '/opportunities' },
       sources,
     });
   }

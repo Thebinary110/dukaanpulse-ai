@@ -1,6 +1,6 @@
 import { Bot, Cpu, RotateCcw, Send, Square, TriangleAlert } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
-import { useNavigate } from 'react-router';
+import { useNavigate, useSearchParams } from 'react-router';
 import type { ToolContext } from '../agents/tools/registry';
 import type { ActionProposal } from '../agents/types';
 import { ActivityTimeline, AgentStrip } from '../components/ask/Activity';
@@ -36,7 +36,10 @@ export function Ask() {
     }),
     [dataset, opportunity],
   );
-  const session = useAskSession(toolContext);
+  const [params] = useSearchParams();
+  // /ask?engine=rules opens straight into rules-only mode (the demo fallback).
+  const requested = params.get('engine');
+  const session = useAskSession(toolContext, requested === 'rules' ? 'deterministic' : requested === 'model' ? 'llm' : 'auto');
   const [input, setInput] = useState('');
   const [selected, setSelected] = useState<number | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
