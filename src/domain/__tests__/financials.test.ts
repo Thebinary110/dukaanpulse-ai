@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { campaignEconomics } from '../financials';
+import { blanketDiscountEconomics, campaignEconomics } from '../financials';
 import { DEFAULT_ASSUMPTIONS, getIntervention, INTERVENTIONS, returnRateWithUplift } from '../interventions';
 import type { CampaignEconomicsInput } from '../financials';
 
@@ -90,5 +90,21 @@ describe('campaign economics', () => {
     expect(e.offerCostPaise).toBe(0);
     expect(e.netIncrementalProfitPaise).toBeCloseTo(0);
     expect(e.returnOnSpend).toBeNull();
+  });
+});
+
+describe('blanketDiscountEconomics', () => {
+  it('counts the subsidy on existing orders and the extra orders needed to recover it', () => {
+    // 3,000 orders, ₹250 bill, ₹20 off, 55% margin, every order uses it.
+    const e = blanketDiscountEconomics({ orders: 3000, averageBillPaise: 25_000, discountPaise: 2000, grossMarginRate: 0.55, redemptionShare: 1 });
+    expect(e.subsidyCostPaise).toBe(6_000_000); // ₹60,000
+    expect(e.marginPerExtraOrderPaise).toBeCloseTo(11_750); // ₹137.50 − ₹20
+    expect(e.breakEvenExtraOrders).toBeCloseTo(6_000_000 / 11_750);
+    expect(e.breakEvenOrderGrowth).toBeCloseTo(6_000_000 / 11_750 / 3000);
+  });
+
+  it('cannot break even when each extra order loses money', () => {
+    const e = blanketDiscountEconomics({ orders: 100, averageBillPaise: 10_000, discountPaise: 6000, grossMarginRate: 0.5, redemptionShare: 1 });
+    expect(e.breakEvenExtraOrders).toBe(Number.POSITIVE_INFINITY);
   });
 });

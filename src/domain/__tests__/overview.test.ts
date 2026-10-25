@@ -9,6 +9,7 @@ import {
   MIN_HISTORY_DAYS_FOR_REPEAT,
   RANGE_OPTIONS,
   revenueByDaypart,
+  revenueDrivers,
   revenueTrend,
 } from '../overview';
 import { tx } from './fixtures';
@@ -184,5 +185,25 @@ describe('largestDaypartChange', () => {
     expect(largestDaypartChange(slice(50, 100, 100), slice(0, 100, 100))).toMatchObject({ relativeChange: 0 });
     expect(largestDaypartChange(slice(50, 0, 0), slice(0, 0, 0))).toBeNull();
     expect(largestDaypartChange(slice(1, 1, 1), [])).toBeNull();
+  });
+});
+
+describe('revenueDrivers', () => {
+  it('decomposes the revenue change exactly into orders and average-bill effects', () => {
+    // Current [53,60): ₹900 over 3 orders (AOV ₹300). Previous [46,53): ₹300 over 2 orders (AOV ₹150).
+    const d = revenueDrivers(fixture, { fromDay: 53, toDay: 60 }, { fromDay: 46, toDay: 53 });
+    expect(d.revenueChangePaise).toBe(60_000);
+    expect(d.ordersEffectPaise).toBe(15_000); // +1 order × ₹150
+    expect(d.averageBillEffectPaise).toBe(45_000); // 3 orders × +₹150
+    expect(d.ordersEffectPaise + d.averageBillEffectPaise).toBeCloseTo(d.revenueChangePaise);
+    expect(d.daypartChangePaise).toEqual({ morning: 30_000, afternoon: 0, evening: 30_000 });
+  });
+
+  it('daypart changes sum to the total on the demo dataset', () => {
+    const { dataset } = generateDataset();
+    const d = revenueDrivers(dataset.transactions, { fromDay: 150, toDay: 180 }, { fromDay: 120, toDay: 150 });
+    const sum = Object.values(d.daypartChangePaise).reduce((a, b) => a + b, 0);
+    expect(sum).toBe(d.revenueChangePaise);
+    expect(d.ordersEffectPaise + d.averageBillEffectPaise).toBeCloseTo(d.revenueChangePaise, 4);
   });
 });

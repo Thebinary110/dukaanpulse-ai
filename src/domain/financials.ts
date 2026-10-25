@@ -95,3 +95,41 @@ export function campaignEconomics(input: CampaignEconomicsInput): CampaignEconom
     breakEvenReturners: n * breakEvenReturnRate,
   };
 }
+
+export interface BlanketDiscountInput {
+  /** Orders in the reference period (observed). */
+  orders: number;
+  averageBillPaise: number;
+  discountPaise: number;
+  grossMarginRate: number;
+  /** Share of existing orders assumed to use the discount (1 = every order). */
+  redemptionShare: number;
+}
+
+export interface BlanketDiscountEconomics {
+  /** Discount given away on orders that would have happened anyway. */
+  subsidyCostPaise: number;
+  /** Margin each extra (new) discounted order earns: bill × margin − discount. */
+  marginPerExtraOrderPaise: number;
+  /** Extra orders needed just to recover the subsidy; Infinity if each extra order loses money. */
+  breakEvenExtraOrders: number;
+  /** breakEvenExtraOrders as a share of current orders. */
+  breakEvenOrderGrowth: number;
+}
+
+/**
+ * Cost of giving every customer a flat discount. Most of it subsidises orders that
+ * would have happened anyway; the question is how many extra orders it must create.
+ */
+export function blanketDiscountEconomics(input: BlanketDiscountInput): BlanketDiscountEconomics {
+  const { orders, averageBillPaise, discountPaise, grossMarginRate, redemptionShare } = input;
+  const subsidyCostPaise = orders * redemptionShare * discountPaise;
+  const marginPerExtraOrderPaise = averageBillPaise * grossMarginRate - discountPaise;
+  const breakEvenExtraOrders = marginPerExtraOrderPaise > 0 ? subsidyCostPaise / marginPerExtraOrderPaise : Number.POSITIVE_INFINITY;
+  return {
+    subsidyCostPaise,
+    marginPerExtraOrderPaise,
+    breakEvenExtraOrders,
+    breakEvenOrderGrowth: orders === 0 ? Number.POSITIVE_INFINITY : breakEvenExtraOrders / orders,
+  };
+}

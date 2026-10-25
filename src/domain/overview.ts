@@ -255,3 +255,35 @@ export function largestDaypartChange(current: readonly DaypartSlice[], previous:
   }
   return best;
 }
+
+// ── Revenue drivers ────────────────────────────────────────────────────────
+
+export interface RevenueDrivers {
+  revenueChangePaise: number;
+  /** (orders now − orders before) × previous average bill. */
+  ordersEffectPaise: number;
+  /** orders now × (average bill now − average bill before). */
+  averageBillEffectPaise: number;
+  /** Revenue change per daypart; sums to revenueChangePaise. */
+  daypartChangePaise: Record<Daypart, number>;
+}
+
+/**
+ * Exact arithmetic decomposition of a revenue change between two windows:
+ *   ΔRevenue = ΔOrders × AOV_before + Orders_now × ΔAOV   (identity, no residual)
+ * It describes where the change shows up; it does not explain why.
+ */
+export function revenueDrivers(transactions: readonly Transaction[], current: DayWindow, previous: DayWindow): RevenueDrivers {
+  const now = summarizeWindow(transactions, current.fromDay, current.toDay);
+  const before = summarizeWindow(transactions, previous.fromDay, previous.toDay);
+  const aovBefore = before.orders === 0 ? 0 : before.revenuePaise / before.orders;
+  const aovNow = now.orders === 0 ? 0 : now.revenuePaise / now.orders;
+  const ordersEffectPaise = (now.orders - before.orders) * aovBefore;
+  const averageBillEffectPaise = now.orders * (aovNow - aovBefore);
+  const cur = revenueByDaypart(transactions, current.fromDay, current.toDay);
+  const prev = revenueByDaypart(transactions, previous.fromDay, previous.toDay);
+  const daypartChangePaise = Object.fromEntries(
+    DAYPARTS.map((d) => [d, cur.find((s) => s.daypart === d)!.revenuePaise - prev.find((s) => s.daypart === d)!.revenuePaise]),
+  ) as Record<Daypart, number>;
+  return { revenueChangePaise: now.revenuePaise - before.revenuePaise, ordersEffectPaise, averageBillEffectPaise, daypartChangePaise };
+}
