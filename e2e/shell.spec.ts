@@ -2,7 +2,7 @@ import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
 
 const ROUTES = [
-  { path: '/', nav: 'Overview', heading: /Welcome back, Sunrise Bakery/ },
+  { path: '/', nav: 'Overview', heading: /^Sunrise Bakery$/ },
   { path: '/opportunities', nav: 'Opportunities', heading: /^Opportunities$/ },
   { path: '/campaigns', nav: 'Campaign Studio', heading: /^Campaign Studio$/ },
   { path: '/results', nav: 'Results', heading: /^Results$/ },
@@ -26,11 +26,6 @@ test('synthetic-data indicator and disclaimer are always visible', async ({ page
     await expect(page.getByRole('button', { name: 'Synthetic demo data' })).toBeVisible();
     await expect(page.getByLabel('Prototype disclaimer')).toContainText('Not affiliated with or endorsed by Paytm');
   }
-});
-
-test('overview shows the generated dataset', async ({ page }) => {
-  await page.goto('/');
-  await expect(page.getByTestId('txn-count')).toHaveText(/^\d{1,2},\d{3}$/);
 });
 
 test('unknown paths show a not-found page inside the shell', async ({ page }) => {

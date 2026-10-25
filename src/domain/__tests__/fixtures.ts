@@ -1,16 +1,16 @@
-import type { CampaignDraft, Transaction } from '../types';
+import type { CampaignDraft, Daypart, Transaction } from '../types';
 import { DEFAULT_ASSUMPTIONS, getIntervention } from '../interventions';
 
 let counter = 0;
 /** Minimal transaction for hand-computed fixtures. Amount is in rupees for readability. */
-export function tx(customerId: string, day: number, rupees: number): Transaction {
+export function tx(customerId: string, day: number, rupees: number, daypart: Daypart = 'morning'): Transaction {
   counter += 1;
   return {
     id: `T-fixture-${counter}`,
     customerId,
     day,
     timestamp: day * 86_400_000 + counter,
-    daypart: 'morning',
+    daypart,
     amountPaise: rupees * 100,
     itemCount: 1,
     paymentMode: 'upi',
@@ -18,9 +18,16 @@ export function tx(customerId: string, day: number, rupees: number): Transaction
 }
 
 /** A customer who visits every `every` days from `from` (inclusive) to `to` (exclusive). */
-export function visitsEvery(customerId: string, every: number, from: number, to: number, rupees = 200): Transaction[] {
+export function visitsEvery(
+  customerId: string,
+  every: number,
+  from: number,
+  to: number,
+  rupees = 200,
+  daypart: Daypart = 'morning',
+): Transaction[] {
   const out: Transaction[] = [];
-  for (let d = from; d < to; d += every) out.push(tx(customerId, d, rupees));
+  for (let d = from; d < to; d += every) out.push(tx(customerId, d, rupees, daypart));
   return out;
 }
 

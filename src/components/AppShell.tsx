@@ -112,9 +112,11 @@ export function AppShell() {
       </a>
 
       <div className="min-h-dvh lg:grid lg:grid-cols-[256px_1fr]">
-        <aside className="sticky top-0 hidden h-dvh border-r border-border bg-surface/60 lg:block">
-          <SidebarContent />
-        </aside>
+        <div className="hidden border-r border-border bg-surface/60 lg:block">
+          <aside className="sticky top-0 h-dvh">
+            <SidebarContent />
+          </aside>
+        </div>
 
         <div className="flex min-w-0 flex-col">
           <header className="sticky top-0 z-30 border-b border-border bg-bg/85 backdrop-blur-md">

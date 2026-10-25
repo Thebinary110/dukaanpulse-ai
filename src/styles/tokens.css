@@ -36,6 +36,11 @@
   --dp-simulated-soft: rgb(180 160 252 / 0.14);
 
   --dp-focus: #6a9fff;
+
+  /* Charts: the subject series uses the accent; comparisons recede to slate. */
+  --dp-series-current: #4c8dff;
+  --dp-series-comparison: #66728f;
+  --dp-grid: #1e2744;
 }
 
 /* :root[data-theme='light'] { … } is reserved for the light theme (Stage 6). */

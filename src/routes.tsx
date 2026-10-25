@@ -6,7 +6,7 @@ import { Opportunities } from './screens/Opportunities';
 import { Overview } from './screens/Overview';
 import { Results } from './screens/Results';
 
-const home = { label: 'Sunrise Bakery', to: '/' };
+const home = { label: 'Workspace', to: '/' };
 const handle = (title: string): RouteHandle => ({ title, crumbs: [home, { label: title }] });
 
 export const router = createBrowserRouter([

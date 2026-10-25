@@ -12,8 +12,15 @@ and measures the result against a holdout group.
 
 ## Status
 
-**Stage 1 (foundation) is complete.** The app shell, design tokens and tested domain layer are in place. The four
-screens render designed placeholders; they are built in Stages 2–5.
+- **Stage 1 (foundation):** done. App shell, design tokens and the tested domain layer.
+- **Stage 2 (Command Center):** done. The Overview screen has:
+  - a 7/30/90-day range selector, kept in the URL as `?range=`;
+  - four metrics compared with the previous equal period;
+  - a revenue trend chart with a table view;
+  - the detected growth opportunity, with observed evidence and a separately labelled estimate;
+  - a recommended next step;
+  - sales by time of day and the new vs returning customer mix.
+- **Next:** the Opportunities, Campaign Studio and Results screens still show designed placeholders (Stages 3–5).
 
 ## Requirements
 
@@ -72,14 +79,14 @@ e2e/                   Playwright tests
 **Units.** Money is integer paise (`…Paise`); days are 0-based indices in IST from the dataset start; timestamps
 are epoch milliseconds; rates are fractions.
 
-**Synthetic data** (`generator.ts`, seed `20261020`). The data covers 180 days (23 Apr to 19 Oct 2026), with the
-analysis date set to 20 Oct 2026:
+**Synthetic data** (`generator.ts`, seed `20261020`). The data covers 180 days (23 Apr to 19 Oct 2026) for a
+fictional bakery in Bengaluru, with the analysis date set to 20 Oct 2026:
 - A recurring base of 900 customers: regulars at 1.5–4 visits/week, occasional customers at 0.25–0.9/week and
   rare customers.
 - About 7 one-time walk-ins per day.
 - Weekday and weekend patterns, plus 8% growth across the period.
-- About 17,500 payments in total, around 105 orders/day, AOV of about ₹258 and a 30-day repeat-customer share of
-  about 67%.
+- About 18,660 payments in total, around 103 orders/day over the last 30 days, AOV of about ₹256 and a 30-day
+  repeat-customer share of about 69%.
 - Noise: a quarter of regulars take a 7–18 day break mid-period.
 - **Planted signal:** 40 established morning regulars stop visiting 21–42 days before the analysis date. A small
   residual chance (3%) of a stray visit remains.
@@ -100,19 +107,28 @@ seeds were not used to tune the settings.
 
 | Seed | Planted | Flagged | True pos. | False pos. | Recall | Recall (never returned) | FP rate (tested regulars) | FP rate (all ordinary customers) | Expected false alarms |
 |---|---|---|---|---|---|---|---|---|---|
-| 20261020 (demo) | 40 | 35 | 31 | 4 | 77.5% | 100% (26/26) | 2.2% | 0.18% | 2.2 |
-| 1 | 40 | 36 | 34 | 2 | 85.0% | 100% (29/29) | 1.1% | 0.09% | 2.2 |
-| 2 | 40 | 39 | 34 | 5 | 85.0% | 100% (25/25) | 2.7% | 0.23% | 2.2 |
-| 3 | 40 | 38 | 36 | 2 | 90.0% | 100% (27/27) | 1.1% | 0.09% | 2.2 |
-| 42 | 40 | 34 | 30 | 4 | 75.0% | 100% (24/24) | 2.1% | 0.18% | 2.3 |
-| **Pooled** | 200 | 182 | 165 | 17 | **82.5%** | **100%** | **1.9%** | **0.15%** | 11.2 |
+| 20261020 (demo) | 40 | 34 | 30 | 4 | 75.0% | 100% (24/24) | 2.4% | 0.18% | 2.1 |
+| 1 | 40 | 34 | 32 | 2 | 80.0% | 100% (28/28) | 1.3% | 0.09% | 2.0 |
+| 2 | 40 | 35 | 33 | 2 | 82.5% | 100% (27/27) | 1.1% | 0.09% | 2.2 |
+| 3 | 40 | 40 | 34 | 6 | 85.0% | 100% (27/27) | 3.5% | 0.27% | 2.1 |
+| 42 | 40 | 35 | 32 | 3 | 80.0% | 100% (32/32) | 1.6% | 0.14% | 2.2 |
+| **Pooled** | 200 | 178 | 161 | 17 | **80.5%** | **100%** | **2.0%** | **0.15%** | 10.6 |
 
 How to read these results:
 - **Misses:** every missed customer made a stray visit after their lapse began. That reset their gap, so
   they don't look absent by this test. That is the method's limit, not a bug: it detects absence, not a reduced
   frequency.
-- **False positives:** there were 17, against 11.2 expected by chance. That is about 1.5×, plausibly because
+- **False positives:** there were 17, against 10.6 expected by chance. That is about 1.6×, plausibly because
   mid-period breaks lower some customers' estimated rates.
+
+**Overview metrics** (`overview.ts`, `detectors/lapsedSummary.ts`).
+- **Comparison periods:** each period is compared with the equally long period immediately before it.
+- **Repeat-customer share:** shown only when at least 28 days of earlier history exist. Otherwise everyone in the
+  first weeks of data would look new; this is why the 90-day view has no repeat comparison.
+- **90-day trend:** plotted as average revenue per day, by week, so the shorter first bucket (90 = 12 × 7 + 6) is
+  not understated.
+- **Opportunity wording:** the headline and summary are built from detector output. The daypart is named only when
+  at least half of the cohort's visits fell in it.
 
 **Economics** (`financials.ts`). The offer cost also counts customers who would have returned anyway.
 
@@ -146,7 +162,11 @@ Every invalid transition is refused and tested.
 
 ## Known limitations
 
-- **Screens:** the Overview, Opportunities, Campaign Studio and Results screens are placeholders until Stages 2–5.
+- **Screens:** Opportunities, Campaign Studio and Results are still placeholders until Stages 3–5.
+- **Revenue trend:** daily comparison lines are aligned by position, not by weekday. In the 30-day view a Saturday
+  can be compared with a Monday; the tooltip names both dates.
+- **Bundle size:** the JavaScript bundle is about 840 kB (250 kB gzipped; mostly Recharts), and Vite warns about chunk size. This doesn't
+  matter for a local demo.
 - **Detector:** it detects absence only. A customer who drops from 3 visits/week to 1 is not flagged; recall on
   lapsed customers who made a stray visit is low (see above). It does not correct for multiple testing; instead,
   it reports expected chance flags.

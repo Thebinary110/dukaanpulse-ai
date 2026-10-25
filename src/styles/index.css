@@ -24,6 +24,9 @@
   --color-simulated: var(--dp-simulated);
   --color-simulated-soft: var(--dp-simulated-soft);
   --color-focus: var(--dp-focus);
+  --color-series-current: var(--dp-series-current);
+  --color-series-comparison: var(--dp-series-comparison);
+  --color-grid: var(--dp-grid);
 
   --font-sans: 'Inter Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
 }

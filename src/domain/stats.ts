@@ -9,3 +9,8 @@ export function quantile(sortedAscending: readonly number[], q: number): number 
   const hi = sortedAscending[upper]!;
   return lo + (hi - lo) * (position - lower);
 }
+
+/** Median of an unsorted array; throws on empty input. */
+export function median(values: readonly number[]): number {
+  return quantile([...values].sort((a, b) => a - b), 0.5);
+}

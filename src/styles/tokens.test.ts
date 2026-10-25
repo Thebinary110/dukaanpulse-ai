@@ -45,6 +45,12 @@ describe('design tokens', () => {
     expect(contrast(tokens['on-accent']!, tokens['accent-hover']!)).toBeGreaterThanOrEqual(4.5);
   });
 
+  it('keeps chart marks distinguishable from chart surfaces (3:1 for graphics)', () => {
+    for (const series of ['series-current', 'series-comparison']) {
+      for (const bg of ['surface', 'surface-raised']) expect(contrast(tokens[series]!, tokens[bg]!)).toBeGreaterThanOrEqual(3);
+    }
+  });
+
   it('keeps the focus ring visible against every background (3:1)', () => {
     for (const bg of backgrounds) expect(contrast(tokens.focus!, tokens[bg]!)).toBeGreaterThanOrEqual(3);
   });

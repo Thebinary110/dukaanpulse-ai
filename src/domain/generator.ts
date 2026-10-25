@@ -58,7 +58,7 @@ export const DEFAULT_GENERATOR_CONFIG: GeneratorConfig = {
 export const DEMO_MERCHANT: Merchant = {
   name: 'Sunrise Bakery',
   category: 'Bakery & café',
-  locality: 'Fictional neighbourhood',
+  locality: 'Bengaluru',
   synthetic: true,
 };
 
@@ -86,8 +86,8 @@ interface SegmentSpec {
 
 const SEGMENTS: Record<Exclude<CustomerSegment, 'walk_in'>, SegmentSpec> = {
   regular: { share: 0.18, weeklyRate: [1.5, 4.0], basketRupees: [150, 300], activeFromStart: 0.7, latestJoinDay: 90 },
-  occasional: { share: 0.45, weeklyRate: [0.25, 0.9], basketRupees: [180, 380], activeFromStart: 0.4, latestJoinDay: 150 },
-  rare: { share: 0.37, weeklyRate: [0.03, 0.15], basketRupees: [200, 450], activeFromStart: 0.3, latestJoinDay: 170 },
+  occasional: { share: 0.45, weeklyRate: [0.25, 0.9], basketRupees: [180, 380], activeFromStart: 0.75, latestJoinDay: 150 },
+  rare: { share: 0.37, weeklyRate: [0.03, 0.15], basketRupees: [200, 450], activeFromStart: 0.65, latestJoinDay: 170 },
 };
 
 /** Share of regulars who take one mid-period break (travel, illness) of 7–18 days. */
