@@ -5,7 +5,7 @@ const ROUTES = [
   { path: '/', nav: 'Overview', heading: /^Sunrise Bakery$/ },
   { path: '/opportunities', nav: 'Opportunities', heading: /may be slipping away$/ },
   { path: '/campaigns', nav: 'Campaign Studio', heading: /^Campaign Studio$/ },
-  { path: '/results', nav: 'Results', heading: /^Results$/ },
+  { path: '/results', nav: 'Results', heading: /^Results & learning$/ },
 ];
 
 test('every navigation destination is reachable from the sidebar', async ({ page }) => {

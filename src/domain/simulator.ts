@@ -126,7 +126,23 @@ export function simulateCampaign(
     messageCostPaise,
     netIncrementalProfitPaise: incrementalMarginPaise - offerCostPaise - messageCostPaise,
     dailyTreatmentReturns,
+    drawnRates: { offer: offerRate, baseline: baselineRate },
   };
+}
+
+/** Net incremental profit of many seeded runs of the same configuration, sorted ascending. */
+export function simulateProfitDistribution(
+  draft: CampaignDraft,
+  basketByCustomer: ReadonlyMap<string, number>,
+  seed: number,
+  runs = 500,
+): number[] {
+  if (runs < 1) throw new Error('runs must be at least 1');
+  const profits: number[] = [];
+  for (let i = 0; i < runs; i++) {
+    profits.push(simulateCampaign(draft, basketByCustomer, deriveSeed(seed, `run-${i}`)).netIncrementalProfitPaise);
+  }
+  return profits.sort((a, b) => a - b);
 }
 
 /** Distribution of net incremental profit over many seeded runs. */
@@ -136,17 +152,18 @@ export function simulateProfitRange(
   seed: number,
   runs = 500,
 ): ProfitRange {
-  if (runs < 1) throw new Error('runs must be at least 1');
-  const profits: number[] = [];
-  for (let i = 0; i < runs; i++) {
-    profits.push(simulateCampaign(draft, basketByCustomer, deriveSeed(seed, `run-${i}`)).netIncrementalProfitPaise);
-  }
-  profits.sort((a, b) => a - b);
+  return summarizeProfits(simulateProfitDistribution(draft, basketByCustomer, seed, runs));
+}
+
+/** P10/P50/P90 and share profitable for an ascending-sorted list of profits. */
+export function summarizeProfits(sortedProfits: readonly number[]): ProfitRange {
+  if (sortedProfits.length === 0) throw new Error('No profits to summarize');
   return {
-    runs,
-    p10Paise: quantile(profits, 0.1),
-    p50Paise: quantile(profits, 0.5),
-    p90Paise: quantile(profits, 0.9),
-    probabilityProfitable: profits.filter((p) => p > 0).length / runs,
+    runs: sortedProfits.length,
+    p10Paise: quantile(sortedProfits, 0.1),
+    p50Paise: quantile(sortedProfits, 0.5),
+    p90Paise: quantile(sortedProfits, 0.9),
+    probabilityProfitable: sortedProfits.filter((p) => p > 0).length / sortedProfits.length,
   };
 }
+

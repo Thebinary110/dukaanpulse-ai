@@ -193,6 +193,11 @@ export interface SimulatedOutcome {
   netIncrementalProfitPaise: number;
   /** Cumulative treatment returns per simulated day (length = windowDays), for the timeline. */
   dailyTreatmentReturns: number[];
+  /**
+   * The underlying return rates this run drew around the assumptions (see simulator.ts).
+   * Optional so outcomes saved before this field existed still load.
+   */
+  drawnRates?: { offer: number; baseline: number };
 }
 
 export interface ProfitRange {

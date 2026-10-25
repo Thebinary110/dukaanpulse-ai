@@ -191,7 +191,8 @@ test.describe('Campaign Studio', () => {
     await page.reload();
     await expect(page.getByTestId('measured-panel').getByTestId('outcome-net')).toHaveText(formatINR(outcome.netIncrementalProfitPaise, { signed: true }));
     await page.getByRole('link', { name: 'View results' }).click();
-    await expect(page.getByTestId('results-outcome')).toContainText('Simulated outcome, not a real result');
+    await expect(page.getByText('Simulated result, not a real campaign')).toBeVisible();
+    await expect(page.getByTestId('kpi-net')).toHaveText(formatINR(outcome.netIncrementalProfitPaise, { signed: true }));
 
     // Restart and repeat: same configuration, same simulated outcome.
     await page.goto('/campaigns');

@@ -2,6 +2,9 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { getDemoData } from '../data/demoData';
 import { defaultDecisionSettings } from '../domain/decision';
 import { DEFAULT_ASSUMPTIONS } from '../domain/interventions';
+import { averageBasketOf, basketByCustomer } from '../domain/campaign';
+import { buildLearningRecord, type LearningRecord } from '../domain/results';
+import { appendRecord, HISTORY_KEY, restoreHistory } from './history';
 import { restoreWorkspace, STORAGE_KEY, type ExplorerState, type Workspace } from './persistence';
 import { initialScenario, transition, type ScenarioEvent, type ScenarioState, type TransitionResult } from './scenario';
 
@@ -18,6 +21,9 @@ interface WorkspaceValue {
   restartDemo: () => void;
   /** Set when saved state existed but could not be used. */
   storageNotice: string | null;
+  /** Completed simulated runs in this browser session, newest first. Survives restarting the demo. */
+  history: LearningRecord[];
+  clearHistory: () => void;
 }
 
 const WorkspaceContext = createContext<WorkspaceValue | null>(null);
@@ -25,6 +31,29 @@ const WorkspaceContext = createContext<WorkspaceValue | null>(null);
 export function currentOpportunityId(): string {
   const { opportunity } = getDemoData();
   return opportunity.status === 'found' ? opportunity.opportunity.id : 'no-opportunity';
+}
+
+/** Freezes a measured scenario into a learning record; null when it is not a complete, approved run. */
+function recordFor(scenario: ScenarioState, completedAt: string): LearningRecord | null {
+  const { opportunity } = getDemoData();
+  if (scenario.status !== 'measured' || !scenario.draft || !scenario.outcome || !scenario.approval || opportunity.status !== 'found') return null;
+  const baskets = basketByCustomer(opportunity.opportunity.cohort);
+  return buildLearningRecord({
+    draft: scenario.draft,
+    outcome: scenario.outcome,
+    approval: scenario.approval,
+    completedAt,
+    averageBasketPaise: averageBasketOf(baskets, scenario.draft.treatmentIds),
+    basketByCustomer: baskets,
+  });
+}
+
+function loadHistory(): LearningRecord[] {
+  try {
+    return restoreHistory(window.sessionStorage.getItem(HISTORY_KEY));
+  } catch {
+    return [];
+  }
 }
 
 function freshExplorer(): ExplorerState {
@@ -55,6 +84,21 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const [storageNotice, setStorageNotice] = useState<string | null>(initial.notice);
   const ref = useRef(workspace);
   ref.current = workspace;
+  const [history, setHistory] = useState<LearningRecord[]>(() => {
+    const saved = loadHistory();
+    // A run completed before history existed (or whose record was lost) is recorded once on load.
+    const pending = recordFor(initial.workspace.scenario, initial.workspace.scenario.executionStartedAt ?? new Date().toISOString());
+    return pending ? appendRecord(saved, pending) : saved;
+  });
+
+  useEffect(() => {
+    try {
+      if (history.length === 0) window.sessionStorage.removeItem(HISTORY_KEY);
+      else window.sessionStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+    } catch {
+      // Non-essential.
+    }
+  }, [history]);
 
   useEffect(() => {
     try {
@@ -66,6 +110,10 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
   const dispatch = useCallback((event: ScenarioEvent): TransitionResult => {
     const result = transition(ref.current.scenario, event);
+    if (result.ok && event.type === 'COMPLETE') {
+      const record = recordFor(result.state, new Date().toISOString());
+      if (record) setHistory((h) => appendRecord(h, record));
+    }
     const next: Workspace = result.ok
       ? { ...ref.current, scenario: result.state }
       : { ...ref.current, scenario: { ...ref.current.scenario, lastError: result.error } };
@@ -98,6 +146,15 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     setStorageNotice(null);
   }, []);
 
+  const clearHistory = useCallback(() => {
+    try {
+      window.sessionStorage.removeItem(HISTORY_KEY);
+    } catch {
+      // Ignore.
+    }
+    setHistory([]);
+  }, []);
+
   const value = useMemo(
     () => ({
       scenario: workspace.scenario,
@@ -108,8 +165,10 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       beginReview,
       restartDemo,
       storageNotice,
+      history,
+      clearHistory,
     }),
-    [workspace, dispatch, updateExplorer, resetExplorer, beginReview, restartDemo, storageNotice],
+    [workspace, dispatch, updateExplorer, resetExplorer, beginReview, restartDemo, storageNotice, history, clearHistory],
   );
   return <WorkspaceContext.Provider value={value}>{children}</WorkspaceContext.Provider>;
 }
