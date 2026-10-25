@@ -24,7 +24,9 @@ import {
 } from './deterministic';
 import { ModelError, type ModelClient } from './llm';
 import { formatMetric, indexMetrics, refsIn, renderClaim, strayNumbers } from './render';
+import { buildRecommendation } from './recommendation';
 import { contradictedPremise, review, reviewFinding } from './review';
+import { populationText, resolveClaim } from './semantics';
 import { runTool, toolSchemaText, type ToolContext } from './tools/registry';
 import type {
   ActionProposal,
@@ -166,6 +168,12 @@ export async function runQuestion(question: string, context: ConversationContext
     try {
       plan = await ask(planSystem(), `Question: ${question}\nContext: ${describeContext(runContext)}`, PLAN_SCHEMA, validatePlan);
       planEngine = 'llm';
+      // Guardrail: the model may not refuse a question the rules recognise as answerable from the data.
+      if (plan.intent === 'unanswerable') {
+        plan = planFor(ruleIntent);
+        planEngine = 'deterministic';
+        notice('The model declined a question the data can address, so the rule-based plan was used.');
+      }
       // Guardrail: an explicit approve/send request is always handled by the Action Planner alone.
       if (APPROVAL_REQUEST.test(question) && (plan.intent !== 'action_request' || plan.steps.some((s) => s.agent !== 'action_planner'))) {
         plan = planFor('action_request');
@@ -310,7 +318,17 @@ export async function runQuestion(question: string, context: ConversationContext
     headline: renderClaim(headline, index),
     sections: SECTION_ORDER.map((type) => ({
       type,
-      findings: finalFindings.filter((f) => f.type === type).map((f) => ({ id: f.id, agent: f.agent, text: renderClaim(f.claim, index), citations: f.citations })),
+      findings: finalFindings
+        .filter((f) => f.type === type)
+        .map((f) => ({
+          id: f.id,
+          agent: f.agent,
+          text: renderClaim(f.claim, index),
+          citations: f.citations,
+          evidence: resolveClaim(f, index),
+          ...(f.segment ? { segment: f.segment } : {}),
+          ...(f.period ? { period: f.period } : {}),
+        })),
     })).filter((s) => s.findings.length > 0),
     limitations: intent === 'unanswerable' ? [DATA_SCOPE] : limitationsFor(finalFindings),
     disclosure: DISCLOSURE,
@@ -318,6 +336,7 @@ export async function runQuestion(question: string, context: ConversationContext
       ? `Your question assumes it went ${premise.claimed === 'doubled' ? 'up sharply' : premise.claimed}, but the data shows a change of ${formatMetric(index.get(premise.ref)!.metric)} against the previous window.`
       : null,
     followUps: FOLLOW_UPS[intent],
+    recommendation: buildRecommendation(intent, outcomes),
   };
   const proposalOutcome = outcomes.find((o) => o.ok && o.tool === 'prepare_campaign_draft');
   const action: ActionProposal | null = proposalOutcome && proposalOutcome.ok ? (proposalOutcome.proposal ?? null) : null;
@@ -368,6 +387,8 @@ export function dedupeFindings(findings: readonly Finding[]): Finding[] {
  *   can neither invent an amount nor silently drop one.
  * - The comparison window comes from the merchant's question (a month unless they say a week or
  *   a quarter); a model cannot quietly switch to a window that tells a different story.
+ * - A "discount for everyone" question always includes the targeted comparison, so the merchant
+ *   sees the alternative it is weighed against.
  * - An action request always yields a draft proposal for the merchant to review, so the
  *   Action Planner's tool list always includes prepare_campaign_draft.
  */
@@ -375,6 +396,11 @@ export function applyPolicies(agent: SpecialistId, intent: Intent, requests: Too
   const offer = ctx.offer;
   const range = rangeFromQuestion(question);
   let out = requests.map((r) => {
+    if (r.tool === 'blanket_discount') {
+      // The discount for everyone is the merchant's stated amount, or the tool's documented default.
+      const { discountRupees: _model, ...rest } = r.args ?? {};
+      return { ...r, args: { ...rest, rangeDays: range, ...(offer.discountRupees !== undefined ? { discountRupees: offer.discountRupees } : {}) } };
+    }
     if (RANGE_TOOLS.has(r.tool)) return { ...r, args: { ...(r.args ?? {}), rangeDays: range } };
     if (!OFFER_TOOLS.has(r.tool)) return r;
     const { discountRupees: _d, minSpendRupees: _m, upliftPercent: _u, ...rest } = r.args ?? {};
@@ -387,6 +413,12 @@ export function applyPolicies(agent: SpecialistId, intent: Intent, requests: Too
     if (args.interventionId === 'no-action' && r.tool === 'prepare_campaign_draft') args.interventionId = 'win-back-30';
     return { ...r, args };
   });
+  if (agent === 'growth_strategist' && intent === 'blanket_discount') {
+    for (const tool of ['blanket_discount', 'compare_interventions'] as const) {
+      if (!out.some((r) => r.tool === tool)) out = [...out, toolsFor('growth_strategist', 'blanket_discount', ctx, question).find((r) => r.tool === tool)!];
+    }
+    out = applyPolicies(agent, 'offer_strategy', out.slice(0, AGENTS.growth_strategist.maxToolCalls), ctx, question);
+  }
   if (isActionStep(agent, intent) && !out.some((r) => r.tool === 'prepare_campaign_draft')) {
     const fallback = toolsFor('action_planner', 'action_request', ctx, question).find((r) => r.tool === 'prepare_campaign_draft')!;
     out = [...out.slice(0, AGENTS.action_planner.maxToolCalls - 1), fallback];
@@ -408,7 +440,7 @@ function planSystem(): string {
     `Specialists:\n${specialists}`,
     `Intents: ${INTENTS.join(', ')}.`,
     ...AGENTS.orchestrator.instructions,
-    '"Why did X change?" questions ARE answerable: the specialists measure what changed and offer clearly labelled possible explanations. Only questions that need data DukaanPulse does not have are unanswerable.',
+    '"Why did X change?" questions ARE answerable: the specialists measure what changed and offer clearly labelled possible explanations. Requests to prove a cause are answerable too: show the evidence and say what it can and cannot establish. Only questions that need data DukaanPulse does not have are unanswerable.',
     'Revenue or sales questions: business_analyst. Time-of-day questions: business_analyst and customer_intelligence. Customer/lapse questions: customer_intelligence. Offer questions: growth_strategist (plus experiment_scientist for test size). Discount for everyone: growth_strategist and customer_intelligence. Last campaign / results: experiment_scientist. Drafting or approving/sending: action_planner only.',
     'Return JSON only. Each task is one short sentence with no numbers. Use 0 to 3 steps.',
   ].join('\n');
@@ -487,6 +519,8 @@ function findingsSystem(agent: SpecialistId): string {
     'observed = what the data shows; estimated = model outputs; assumed = inputs; simulated = simulated campaign outcomes; hypothesis = a possible explanation, worded tentatively ("may", "worth checking").',
     'Put every number as a reference exactly like {{c1.revenue_change_pct}} using the references listed. Do not write any digit yourself, not even in dates or day counts.',
     'Do not say anything caused anything unless the finding is a hypothesis. Do not claim predictions, proof, certainty or significance. Do not guess personal reasons.',
+    'Describe each number exactly as its "about" note says. Never add a time of day, customer group or time window that the reference does not state (for example, do not call all regular customers "morning customers").',
+    'segment: who the finding is about, in plain words (e.g. "regulars flagged as away", "all sales"). period: the time window it covers, or "" if none.',
     'citations: list every reference you used. Return JSON only.',
   ].join('\n');
 }
@@ -501,7 +535,8 @@ function findingsUser(task: string, question: string, own: readonly ToolOutcome[
     lines.push(`- ${o.tool} (${o.callId}): ${o.summary}`);
     for (const m of o.metrics) {
       const when = m.period ? `; ${m.period.label}${m.baseline ? ` vs ${m.baseline.label}` : ''}` : '';
-      lines.push(`  {{${o.callId}.${m.key}}} = ${formatMetric(m)} — ${m.label} (${m.evidence}${when})`);
+      const about = m.population ? `; about: ${populationText(m.population)}` : '';
+      lines.push(`  {{${o.callId}.${m.key}}} = ${formatMetric(m)} — ${m.label} (${m.evidence}${when}${about})`);
     }
     for (const l of o.limitations) lines.push(`  limitation: ${l}`);
   }
@@ -511,7 +546,7 @@ function findingsUser(task: string, question: string, own: readonly ToolOutcome[
 function findingsSchema(agent: SpecialistId) {
   const type = AGENTS[agent].findingTypes[0];
   return {
-    example: { findings: [{ type, claim: 'Revenue changed by {{c1.revenue_change_pct}} against the previous window.', citations: ['c1.revenue_change_pct'] }] },
+    example: { findings: [{ type, claim: 'Revenue changed by {{c1.revenue_change_pct}} against the previous window.', citations: ['c1.revenue_change_pct'], segment: 'all sales', period: 'last 30 days' }] },
     schema: {
     type: 'object',
     properties: {
@@ -519,7 +554,13 @@ function findingsSchema(agent: SpecialistId) {
         type: 'array',
         items: {
           type: 'object',
-          properties: { type: { type: 'string', enum: AGENTS[agent].findingTypes }, claim: { type: 'string' }, citations: { type: 'array', items: { type: 'string' } } },
+          properties: {
+            type: { type: 'string', enum: AGENTS[agent].findingTypes },
+            claim: { type: 'string' },
+            citations: { type: 'array', items: { type: 'string' } },
+            segment: { type: 'string' },
+            period: { type: 'string' },
+          },
           required: ['type', 'claim', 'citations'],
         },
       },
@@ -533,23 +574,35 @@ interface RawFinding {
   type: EvidenceType;
   claim: string;
   citations: string[];
+  segment?: string;
+  period?: string;
 }
 
 function validateFindings(v: unknown): RawFinding[] | null {
   const fs = (v as { findings?: unknown })?.findings;
   if (!Array.isArray(fs)) return null;
   return fs.slice(0, 5).flatMap((f) => {
-    const o = f as { type?: unknown; claim?: unknown; citations?: unknown };
+    const o = f as { type?: unknown; claim?: unknown; citations?: unknown; segment?: unknown; period?: unknown };
     if (typeof o.type !== 'string' || typeof o.claim !== 'string' || !SECTION_ORDER.includes(o.type as EvidenceType)) return [];
     const citations = Array.isArray(o.citations) ? o.citations.filter((c): c is string => typeof c === 'string').map((c) => c.replace(/[{}\s]/g, '')) : [];
-    return [{ type: o.type as EvidenceType, claim: o.claim.slice(0, 400), citations }];
+    const segment = typeof o.segment === 'string' && o.segment.trim() ? o.segment.trim().slice(0, 80) : undefined;
+    const period = typeof o.period === 'string' && o.period.trim() ? o.period.trim().slice(0, 60) : undefined;
+    return [{ type: o.type as EvidenceType, claim: o.claim.slice(0, 400), citations, ...(segment ? { segment } : {}), ...(period ? { period } : {}) }];
   });
 }
 
 let llmSeq = 0;
 function toFinding(agent: SpecialistId, f: RawFinding): Finding {
   llmSeq += 1;
-  return { id: `m${llmSeq}`, agent, type: f.type, claim: f.claim, citations: [...new Set([...f.citations, ...refsIn(f.claim)])] };
+  return {
+    id: `m${llmSeq}`,
+    agent,
+    type: f.type,
+    claim: f.claim,
+    citations: [...new Set([...f.citations, ...refsIn(f.claim)])],
+    ...(f.segment ? { segment: f.segment } : {}),
+    ...(f.period ? { period: f.period } : {}),
+  };
 }
 
 function headlineSystem(): string {

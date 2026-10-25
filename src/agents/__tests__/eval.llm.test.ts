@@ -9,6 +9,7 @@ import { emptyContext } from '../context';
 import { checkCase, EVAL_CASES } from '../eval';
 import { OllamaClient } from '../llm';
 import { runQuestion } from '../orchestrator';
+import { scoreRun } from '../scoring';
 import { completedRecord, context } from './helpers';
 
 const enabled = process.env.DUKAANPULSE_LLM_EVAL === '1';
@@ -23,8 +24,10 @@ describe.skipIf(!enabled)(`live evaluation with ${model}`, () => {
     for (const c of EVAL_CASES) {
       let ctx = emptyContext();
       for (const setup of c.setup ?? []) ctx = (await runQuestion(setup, ctx, tools, { client })).context;
+      const before = JSON.stringify(tools.scenario);
       const run = await runQuestion(c.question, ctx, tools, { client });
       const failures = checkCase(c, run);
+      const scores = scoreRun(run, before, JSON.stringify(tools.scenario));
       rows.push({
         case: c.id,
         question: c.question,
@@ -35,6 +38,8 @@ describe.skipIf(!enabled)(`live evaluation with ${model}`, () => {
         agents: run.reports.map((r) => `${r.agent}${r.round > 1 ? ' (round 2)' : ''}${r.fellBack ? ' [fallback]' : ''}`),
         toolCalls: run.reports.flatMap((r) => r.toolCalls.map((t) => (t.ok ? t.tool : `${t.tool} (rejected: ${t.error})`))),
         rejectedFindings: run.reports.flatMap((r) => r.rejected.map((x) => x.reasons.join('; '))),
+        scores,
+        recommendation: run.answer.recommendation ? { status: run.answer.recommendation.status, action: run.answer.recommendation.action } : null,
         review: run.review.decision,
         modelCalls: run.usage.modelCalls,
         elapsedMs: run.usage.elapsedMs,

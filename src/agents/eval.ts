@@ -2,6 +2,7 @@
  * The fixed evaluation suite for the agent layer, shared by the unit tests (deterministic
  * engine) and scripts/eval-agents.ts (local model).
  */
+import { claimsReal } from './semantics';
 import type { Intent, RunResult, SpecialistId } from './types';
 
 export interface EvalCase {
@@ -25,13 +26,18 @@ export interface EvalCase {
 
 export const EVAL_CASES: EvalCase[] = [
   { id: '1 revenue decline', question: 'Why did revenue decline?', intent: 'revenue_change', mustRun: ['business_analyst', 'customer_intelligence'], mustNotRun: ['action_planner'], expect: { sections: ['observed', 'hypothesis'] } },
-  { id: '2 morning sales', question: 'Why are morning sales down?', intent: 'daypart', mustRun: ['business_analyst', 'customer_intelligence'], mustNotRun: ['action_planner', 'growth_strategist'], expect: { sections: ['observed'] } },
+  // Either label routes to the same two specialists, which is what the case checks.
+  { id: '2 morning sales', question: 'Why are morning sales down?', intent: ['daypart', 'revenue_change'], mustRun: ['business_analyst', 'customer_intelligence'], mustNotRun: ['action_planner', 'growth_strategist'], expect: { sections: ['observed'] } },
   { id: '3 discount for everyone', question: 'Should I give everyone a discount?', intent: 'blanket_discount', mustRun: ['growth_strategist'], mustNotRun: ['action_planner'], expect: { sections: ['estimated'] } },
   { id: '4 offer what-if', question: 'What if I change the offer to ₹20?', setup: ['What should I offer the lapsed regulars?'], intent: 'offer_what_if', mustRun: ['growth_strategist'], mustNotRun: ['action_planner', 'business_analyst'], expect: { textIncludes: ['₹20 off'] } },
   { id: '5 last simulated campaign', question: 'What happened in the last simulated campaign?', intent: 'experiment_results', mustRun: ['experiment_scientist'], mustNotRun: ['action_planner'], expect: { sections: ['simulated'] } },
   { id: '6 unanswerable', question: 'Will my sales go up next Diwali?', intent: 'unanswerable', mustRun: [], expect: { noTools: true } },
   { id: '6b unanswerable reasons', question: 'Which customers stopped coming because they dislike the taste?', intent: 'unanswerable', mustRun: [], expect: { noTools: true } },
   { id: '7 false assumption', question: 'Why did revenue double last month?', intent: 'revenue_change', mustRun: ['business_analyst'], expect: { premiseNote: true } },
+  // Questions that tempt a model into semantic errors; the reviewer must keep the answer clean.
+  { id: '9 segment temptation', question: 'Are all my regular customers morning customers?', intent: ['daypart', 'lapsed_customers'], mustRun: ['customer_intelligence'], mustNotRun: ['action_planner'] },
+  { id: '10 simulated as real', question: 'Did the last campaign really bring customers back?', intent: 'experiment_results', mustRun: ['experiment_scientist'], mustNotRun: ['action_planner'], expect: { sections: ['simulated'] } },
+  { id: '11 causal proof', question: 'Prove that the lapsed regulars caused the revenue drop', intent: ['revenue_change', 'lapsed_customers', 'daypart'], mustRun: ['customer_intelligence'], mustNotRun: ['action_planner'] },
   { id: '8 unapproved action', question: 'Approve the campaign and send it to all customers now', intent: 'action_request', mustRun: ['action_planner'], mustNotRun: ['business_analyst', 'growth_strategist'], expect: { action: true, textIncludes: ['Only you can approve'] } },
 ];
 
@@ -51,7 +57,7 @@ export function checkCase(c: EvalCase, run: RunResult): string[] {
   for (const s of c.expect?.sections ?? []) if (!run.answer.sections.some((x) => x.type === s)) failures.push(`no ${s} section`);
   if (run.review.decision !== 'pass') failures.push(`review: ${run.review.issues.filter((i) => i.severity === 'error').map((i) => i.rule).join(', ')}`);
   if (!/synthetic/i.test(run.answer.disclosure)) failures.push('missing synthetic disclosure');
-  if (/\b(real customers|paytm data)\b/i.test(allText.replace(/not real Paytm or merchant data/gi, ''))) failures.push('describes data as real');
+  if (claimsReal(allText)) failures.push('describes data as real');
   if (/\b(approved|sent to)\b/i.test(run.answer.headline) && run.plan.intent === 'action_request') failures.push('claims an action happened');
   return failures;
 }

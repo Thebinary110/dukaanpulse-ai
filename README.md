@@ -323,11 +323,80 @@ Last live run with `qwen3.6:35b`: 9/9 passed, about 19 s per question on average
 removed 0–3 unsupported model claims per answer, such as invented numbers, causal claims stated as fact, and
 guessed personal reasons.
 
+## Semantic trust and recommendations (Stage 7)
+
+**The failure it fixes.** The model wrote "Among 209 regular **morning** customers, 34 showed…". The 209 was
+the right number (all regulars checked), and the Stage 6 reviewer accepted the sentence: the reference resolved,
+no digits were typed and no banned word appeared. Metrics carried no description of *who* they measure, and
+nothing compared what a sentence says about a number with what the number is.
+
+**What changed.**
+- **Typed evidence:** every tool metric now carries a **population**: all sales, all customers, all regulars, regulars
+  flagged as away, new or returning customers, the offer group, the holdout, or the campaign. Where it applies, the
+  population includes a time of day. Every tool result also carries its **comparison window**
+  (`src/agents/tools/populations.ts`).
+- **Semantic checks:** `src/agents/semantics.ts` resolves each claim to the typed evidence behind every reference
+  and checks the words around each number:
+  - **S1 segment:** qualifiers next to a number must describe its population.
+  - **S2 period:** time words must match the evidence window.
+  - **S3 mixed windows:** no mixing comparison windows in one claim.
+  - **S4 direction:** rise/fall wording must match the sign.
+  - **S5 estimate wording:** estimates must be worded as estimates.
+  - **S6 simulation:** simulated outcomes must say so, and never be described as real.
+  - **S7 recommendation:** a "best option" must match the comparison tool.
+  - **S8 cost assumptions:** financial estimates need their cost assumptions.
+- **New action rule:** R10 rejects any claim that something was approved, sent or paid.
+- **Negation-aware checks:** the old "real customers" keyword rule is now negation-aware. It had been silently
+  removing the app's own disclaimer.
+- **How rejections work:** invalid claims are rejected, revised once by the model, or dropped. Nothing is rewritten
+  with new content.
+- **Recommendation card** (`src/agents/recommendation.ts`, built deterministically from tool results):
+  - recommended action and target segment;
+  - observed evidence with periods;
+  - cost and trade-off, and assumptions;
+  - alternatives including doing nothing (and a discount for everyone when asked);
+  - limitations, and a next step.
+
+  It recommends only when an offer comparison with its cost assumptions exists. Otherwise it shows what is known,
+  what is uncertain and what would help.
+- **New runtime policies:**
+  - A blanket-discount question always includes the targeted comparison, and its amount comes from the merchant.
+  - If the model refuses a question that the rules recognise as answerable, the rule-based plan is used.
+- **UI:** claims are styled by type (observed, estimated, assumed, simulated, hypothesis). Each claim has an
+  "Evidence" inspector showing the value, evidence type, population, period and source tool. Tool evidence cards are
+  collapsed by default.
+
+**Evaluation.**
+- **Adversarial suite** (`src/agents/adversarial.ts`): 10 cases, each run on the model-assisted path (a scripted
+  model writes the bad claim) and on the rule-based path:
+  1. wrong segment
+  2. wrong window
+  3. causal proof
+  4. simulated as real
+  5. missing or invalid references
+  6. contradicting the tool
+  7. missing cost assumptions
+  8. unanswerable
+  9. conflicting recommendation
+  10. approve/send
+- **Adversarial results:** all 12 bad claims rejected on both paths, all 9 correct claims kept, and every shown claim
+  fully grounded, segment- and period-correct, numerically consistent and correctly labelled. No action was ever
+  taken. The report is written to `test-results/adversarial-report.json`.
+- **Live evaluation** (`npm run eval:agents`): 12 cases, adding segment, simulated-as-real and causal-proof
+  temptations. Last run with `qwen3.6:35b`: 12/12. All 76 claims shown passed the grounding, segment/period,
+  numerical and uncertainty checks, and the reviewer removed 17 model claims (3 wrong-segment errors, causal
+  statements, evidence-type errors, invented numbers, a personal-reason guess). Average about 25 s per question,
+  maximum about 45 s.
+- **What these results do and don't show:** they measure grounding and honest labelling on synthetic data. They are
+  not evidence that any offer works.
+
 ## Known limitations
 
 - **Ask DukaanPulse:** model answers take about 10–35 s on this machine, and the rule-based engine is instant. The
-  reviewer checks numbers, citations, evidence types and banned claims, but not the meaning of the wording. A model
-  can still phrase a correct number misleadingly, for example calling all 209 regulars "morning customers".
+  semantic checks are deterministic word-level rules over typed evidence. They catch wrong segments, windows,
+  directions and evidence types next to a number, but not every possible misreading (for example a wrong claim
+  phrased without any qualifier word, or a qualifier placed far from its number). Unvalidated relationships are
+  rejected rather than trusted, so some honest model phrasings are also removed.
   Conversation history lasts only for the page session. The model endpoint exists only under `npm run dev` /
   `npm run preview`, not in a static deployment.
 - **Results statistics:** power and sample size use normal approximations (exact tests would be more conservative

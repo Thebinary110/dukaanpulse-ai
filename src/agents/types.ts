@@ -4,7 +4,7 @@
  * Agents never produce numbers. Every figure in an answer comes from a tool result metric,
  * referenced in text as {{callId.metricKey}} and rendered by the app's formatters.
  */
-import type { CampaignDraft } from '../domain/types';
+import type { CampaignDraft, Daypart } from '../domain/types';
 
 export type EvidenceType = 'observed' | 'estimated' | 'assumed' | 'simulated' | 'hypothesis';
 
@@ -17,8 +17,31 @@ export interface Period {
   label: string;
 }
 
+/**
+ * Who or what a metric is about. Used to check that a claim describes the same population
+ * the number measures (e.g. "209 regulars" must not become "209 morning customers").
+ */
+export type PopulationGroup =
+  | 'shop' // all sales / orders
+  | 'all_customers'
+  | 'regulars' // every regular customer checked by the detector
+  | 'flagged_regulars' // regulars flagged for an unusually long absence
+  | 'new_customers'
+  | 'returning_customers'
+  | 'offer_group' // flagged regulars who would get / got the offer
+  | 'holdout' // flagged regulars held back
+  | 'campaign'; // a whole campaign (both groups) or its economics
+
+export interface Population {
+  group: PopulationGroup;
+  /** Time of day the metric is restricted to, or the cohort's majority time of day for flagged regulars. */
+  daypart?: Daypart;
+}
+
 export interface Metric {
   key: string;
+  /** Population the value describes; absent for settings and labels. */
+  population?: Population;
   label: string;
   /** Numeric value; for unit 'text' use `text`. Percent and pp are fractions (0.13 = 13%). */
   value: number;
@@ -62,6 +85,8 @@ export interface ToolResult {
   provenance: Provenance;
   /** In-app page that shows the underlying numbers. */
   link?: { to: string; label: string };
+  /** The comparison window every windowed metric of this result uses. */
+  window?: { days: number; current: Period; baseline: Period | null };
   /** Only for prepare_campaign_draft. */
   proposal?: ActionProposal;
 }
@@ -93,6 +118,43 @@ export interface Finding {
   claim: string;
   /** Metric refs "callId.metricKey" the claim relies on. */
   citations: string[];
+  /** Population the claim is about, as declared by its author (checked against the evidence). */
+  segment?: string;
+  /** Time window the claim is about, as declared by its author (checked against the evidence). */
+  period?: string;
+}
+
+/** One reference of a claim, resolved to the typed tool evidence behind it. */
+export interface ResolvedReference {
+  ref: string;
+  callId: string;
+  tool: ToolName;
+  metricKey: string;
+  label: string;
+  value: string;
+  evidence: Metric['evidence'];
+  population?: Population;
+  period?: string;
+}
+
+export interface RecommendationCard {
+  status: 'recommend' | 'insufficient';
+  /** e.g. "Targeted discount: ₹30 off on ₹200+" */
+  action: string | null;
+  target: string | null;
+  /** Why, with periods; observed evidence only. */
+  evidence: { text: string; refs: string[] }[];
+  economics: { label: string; value: string; kind: 'estimated' | 'assumed' | 'simulated' }[];
+  assumptions: { label: string; value: string }[];
+  alternatives: { option: string; net: string; note: string }[];
+  limitations: string[];
+  /** For insufficient evidence: what is known, uncertain, and what would help. */
+  known: string[];
+  uncertain: string[];
+  wouldHelp: string[];
+  nextStep: { label: string; to?: string; ask?: string } | null;
+  /** Tool call ids the card was built from. */
+  sources: string[];
 }
 
 export type Intent =
@@ -193,7 +255,7 @@ export interface Budget {
 
 export interface AnswerSection {
   type: EvidenceType;
-  findings: { id: string; agent: SpecialistId | 'orchestrator'; text: string; citations: string[] }[];
+  findings: { id: string; agent: SpecialistId | 'orchestrator'; text: string; citations: string[]; evidence: ResolvedReference[]; segment?: string; period?: string }[];
 }
 
 export interface Answer {
@@ -203,6 +265,7 @@ export interface Answer {
   disclosure: string;
   premiseNote: string | null;
   followUps: string[];
+  recommendation: RecommendationCard | null;
 }
 
 export interface RunResult {

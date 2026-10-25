@@ -19,6 +19,7 @@ import type { Dataset, Daypart } from '../../domain/types';
 import { customerMix } from '../../domain/overview';
 import { STATUS_LABEL, type ScenarioState } from '../../state/scenario';
 import type { Metric, OfferOverrides, Period, ToolCallRequest, ToolName, ToolOutcome, ToolResult } from '../types';
+import { annotate } from './populations';
 
 export interface ToolContext {
   dataset: Dataset;
@@ -461,6 +462,7 @@ const IMPLS: Record<ToolName, Impl> = {
         m('lift', 'Difference in return rate', rm.liftRate, 'pp', 'simulated'),
         m('net_simulated', 'Net extra profit in the simulated run', rm.netPaise, 'paise', 'simulated'),
         m('net_estimate', 'Net extra profit estimated before the run', r.estimate.netIncrementalProfitPaise, 'paise', 'estimated'),
+        m('gross_margin', 'Gross margin assumed for the run', r.assumptions.grossMarginRate, 'percent', 'assumed'),
         m('runs_profitable', 'Share of simulated runs of this setup that were profitable', r.range.probabilityProfitable, 'percent', 'simulated'),
         m('power', 'Chance this test size detects the assumed lift', rm.powerForAssumedLift, 'percent', 'estimated'),
         m('required_per_group', 'Customers per group needed for 80% power', rm.requiredPerGroup, 'count', 'estimated'),
@@ -514,6 +516,8 @@ const IMPLS: Record<ToolName, Impl> = {
     const label = `${intervention.label}: ${describeOffer(offer)}`;
     const metrics: Metric[] = [
       t('offer', 'Proposed offer', label, 'assumed'),
+      m('gross_margin', 'Gross margin', settings.assumptions.grossMarginRate, 'percent', 'assumed'),
+      m('baseline_return', 'Would return anyway', settings.assumptions.baselineReturnRate, 'percent', 'assumed'),
       m('recipients', 'Recipients', draft.treatmentIds.length, 'count', 'observed'),
       m('holdout', 'Held back', draft.holdoutIds.length, 'count', 'observed'),
     ];
@@ -539,13 +543,17 @@ export function runTool(request: ToolCallRequest, ctx: ToolContext, callId: stri
   const tool = request.tool as ToolName;
   try {
     const { computedWith, ...rest } = IMPLS[tool](v.args, ctx);
-    return {
-      callId,
-      tool,
-      ok: true,
-      ...rest,
-      provenance: { tool, args: v.args, datasetSeed: ctx.dataset.seed, asOfDay: ctx.dataset.asOfDay, computedWith },
-    };
+    const flaggedDaypart = ctx.opportunity.status === 'found' ? (ctx.opportunity.dominantDaypart ?? undefined) : undefined;
+    return annotate(
+      {
+        callId,
+        tool,
+        ok: true,
+        ...rest,
+        provenance: { tool, args: v.args, datasetSeed: ctx.dataset.seed, asOfDay: ctx.dataset.asOfDay, computedWith },
+      },
+      flaggedDaypart,
+    );
   } catch (e) {
     return { callId, tool, ok: false, error: e instanceof Error ? e.message : 'Tool failed.' };
   }

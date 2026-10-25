@@ -146,6 +146,14 @@ describe('orchestrator with a model client', () => {
     expect(JSON.stringify(tools.scenario)).toContain('"status":"detected"');
   });
 
+  it('does not let the model refuse a question the data can address', async () => {
+    const client = new FakeClient({ plan: () => ({ intent: 'unanswerable', steps: [], rationale: 'Cannot prove causation.' }), tools: () => ({ toolCalls: [] }), findings: () => ({ findings: [] }) });
+    const run = await runQuestion('Prove that the lapsed regulars caused the revenue drop', emptyContext(), tools, { client, budget: { retries: 0 } });
+    expect(run.plan.intent).toBe('revenue_change');
+    expect(run.notices.join(' ')).toMatch(/declined a question the data can address/);
+    expect(run.reports.length).toBeGreaterThan(0);
+  });
+
   it('stops cleanly when cancelled', async () => {
     const controller = new AbortController();
     const client = new FakeClient({ plan: () => ({ intent: 'daypart', steps: [{ agent: 'business_analyst', task: 'x' }], rationale: '' }), tools: () => ({ toolCalls: [] }) }, 200);
@@ -162,7 +170,8 @@ describe('runtime policies', () => {
     const ctx = { ...emptyContext(), offer: { interventionId: 'win-back-30', discountRupees: 20 } };
     const out = applyPolicies('growth_strategist', 'offer_what_if', [{ tool: 'compare_interventions', args: {} }, { tool: 'blanket_discount', args: { discountRupees: 30 } }], ctx, 'What if ₹20?');
     expect(out[0]!.args).toEqual({ interventionId: 'win-back-30', discountRupees: 20 });
-    expect(out[1]!.args).toEqual({ discountRupees: 30, rangeDays: 30 }); // not offer-targeting; window from the question
+    // The blanket discount also takes the merchant's stated amount (the model's ₹30 is discarded); window from the question.
+    expect(out[1]!.args).toEqual({ rangeDays: 30, discountRupees: 20 });
     // A different option chosen by the model gives way to the one the merchant asked about.
     const other = applyPolicies('growth_strategist', 'offer_what_if', [{ tool: 'compare_interventions', args: { interventionId: 'free-addon', upliftPercent: 30 } }], ctx, 'x');
     expect(other[0]!.args).toEqual({ interventionId: 'win-back-30', discountRupees: 20 });
@@ -190,6 +199,17 @@ describe('runtime policies', () => {
       f('c', '{{c1.dominant_daypart_share}} of their past visits were in the morning.'),
     ]);
     expect(out.map((x) => x.id)).toEqual(['a', 'c']);
+  });
+
+  it('always pairs a discount-for-everyone question with the targeted comparison', async () => {
+    const { applyPolicies } = await import('../orchestrator');
+    const out = applyPolicies('growth_strategist', 'blanket_discount', [{ tool: 'blanket_discount', args: { discountRupees: 50 } }], emptyContext(), 'Should I give everyone a discount?');
+    expect(out.map((r) => r.tool)).toEqual(['blanket_discount', 'compare_interventions']);
+    // The model's own amount for the blanket discount is discarded…
+    expect(out[0]!.args).toEqual({ rangeDays: 30 });
+    // …and the merchant's stated amount is used when there is one.
+    const stated = applyPolicies('growth_strategist', 'blanket_discount', [{ tool: 'blanket_discount', args: { discountRupees: 50 } }], { ...emptyContext(), offer: { discountRupees: 20, interventionId: 'win-back-30' } }, 'q');
+    expect(stated[0]!.args).toEqual({ rangeDays: 30, discountRupees: 20 });
   });
 
   it('always gives an action request a draft proposal', async () => {

@@ -1,8 +1,37 @@
-import { ArrowRight, ChevronDown, FileText, FlaskConical, Info, ShieldCheck } from 'lucide-react';
+import { ArrowRight, Calculator, ChevronDown, Eye, FileText, FlaskConical, Info, Lightbulb, ShieldCheck, SlidersHorizontal, type LucideIcon } from 'lucide-react';
 import { Link } from 'react-router';
 import { formatMetric } from '../../agents/render';
-import type { ActionProposal, RunResult, ToolResult } from '../../agents/types';
+import { populationText } from '../../agents/semantics';
+import type { ActionProposal, EvidenceType, ResolvedReference, RunResult, ToolResult } from '../../agents/types';
 import { AGENT_NAME, SECTION_LABEL, SECTION_TONE, TOOL_LABEL } from './labels';
+import { RecommendationCard } from './RecommendationCard';
+
+const TYPE_ICON: Record<EvidenceType, LucideIcon> = { observed: Eye, estimated: Calculator, assumed: SlidersHorizontal, simulated: FlaskConical, hypothesis: Lightbulb };
+const TYPE_BORDER: Record<EvidenceType, string> = {
+  observed: 'border-accent/60',
+  estimated: 'border-border-strong',
+  assumed: 'border-warning/60',
+  simulated: 'border-simulated/60',
+  hypothesis: 'border-dashed border-text/40',
+};
+
+function ClaimEvidence({ refs }: { refs: ResolvedReference[] }) {
+  if (refs.length === 0) return null;
+  return (
+    <details className="mt-0.5 text-[11px] text-muted">
+      <summary className="inline cursor-pointer list-none hover:text-text [&::-webkit-details-marker]:hidden">Evidence</summary>
+      <ul className="mt-1 space-y-0.5 rounded-lg border border-border bg-bg/40 p-2" data-testid="claim-evidence">
+        {refs.map((r) => (
+          <li key={r.ref} className="tabular">
+            <span className="text-text">{r.value}</span> · {r.label} · <span className="uppercase">{r.evidence}</span>
+            {r.population ? ` · about ${populationText(r.population)}` : ''}
+            {r.period ? ` · ${r.period}` : ''} · {TOOL_LABEL[r.tool]} ({r.callId})
+          </li>
+        ))}
+      </ul>
+    </details>
+  );
+}
 
 function EvidenceCard({ result, cited }: { result: ToolResult; cited: Set<string> }) {
   const metrics = [...result.metrics].sort((a, b) => Number(cited.has(`${result.callId}.${b.key}`)) - Number(cited.has(`${result.callId}.${a.key}`))).slice(0, 4);
@@ -118,30 +147,42 @@ export function AnswerView({ result, action, onFollowUp, disabled }: { result: R
         </p>
       )}
 
-      {answer.sections.map((s) => (
-        <section key={s.type} aria-label={SECTION_LABEL[s.type]} data-testid={`section-${s.type}`}>
-          <h3 className={`mb-1.5 inline-flex rounded-full border px-2 py-px text-[10px] font-semibold tracking-wider uppercase ${SECTION_TONE[s.type]}`}>{SECTION_LABEL[s.type]}</h3>
-          <ul className="space-y-1.5">
-            {s.findings.map((f) => (
-              <li key={f.id} className="text-sm leading-relaxed text-text">
-                {f.text} <span className="text-[11px] text-muted">· {AGENT_NAME[f.agent]}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ))}
+      {answer.recommendation && <RecommendationCard card={answer.recommendation} onAsk={onFollowUp} disabled={disabled} />}
+
+      {answer.sections.map((s) => {
+        const Icon = TYPE_ICON[s.type];
+        return (
+          <section key={s.type} aria-label={SECTION_LABEL[s.type]} data-testid={`section-${s.type}`}>
+            <h3 className={`mb-1.5 inline-flex items-center gap-1 rounded-full border px-2 py-px text-[10px] font-semibold tracking-wider uppercase ${SECTION_TONE[s.type]}`}>
+              <Icon className="size-3" aria-hidden="true" />
+              {SECTION_LABEL[s.type]}
+            </h3>
+            <ul className="space-y-1.5">
+              {s.findings.map((f) => (
+                <li key={f.id} className={`border-l-2 pl-2.5 text-sm leading-relaxed text-text ${TYPE_BORDER[s.type]}`} data-type={s.type}>
+                  {f.text} <span className="text-[11px] text-muted">· {AGENT_NAME[f.agent]}</span>
+                  <ClaimEvidence refs={f.evidence} />
+                </li>
+              ))}
+            </ul>
+          </section>
+        );
+      })}
 
       {result.action && action && <ActionCard proposal={result.action} action={action} />}
 
       {outcomes.length > 0 && (
-        <section aria-label="Evidence">
-          <h3 className="mb-2 text-[11px] font-semibold tracking-wider text-muted uppercase">Evidence ({outcomes.length} tool results)</h3>
-          <div className="grid gap-2 sm:grid-cols-2">
+        <details className="group" data-testid="evidence-section">
+          <summary className="inline-flex cursor-pointer list-none items-center gap-1 text-[11px] font-semibold tracking-wider text-muted uppercase hover:text-text [&::-webkit-details-marker]:hidden">
+            Evidence ({outcomes.length} tool results)
+            <ChevronDown className="size-3.5 transition-transform group-open:rotate-180" aria-hidden="true" />
+          </summary>
+          <div className="mt-2 grid gap-2 sm:grid-cols-2">
             {outcomes.map((o) => (
               <EvidenceCard key={o.callId} result={o} cited={cited} />
             ))}
           </div>
-        </section>
+        </details>
       )}
 
       <details className="group text-xs text-muted">

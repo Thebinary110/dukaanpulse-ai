@@ -26,8 +26,8 @@ export function classifyIntent(question: string, ctx: ConversationContext): Inte
   if (/\b(status|where is my campaign|my draft|current campaign)\b/.test(q)) return 'campaign_status';
   if (/\b(morning|afternoon|evening|breakfast|lunch|dinner time)\b/.test(q)) return 'daypart';
   if (/\b(revenue|sales|income|earnings?|business|takings)\b/.test(q)) return 'revenue_change';
-  if (/\b(lapsed|regulars|stopped coming|churn\w*|lost customers|slipping|loyal|who (?:has|have) stopped)\b/.test(q)) return 'lapsed_customers';
   if (/\b(offer|discount|promotion|promo|win (?:them )?back|what should i do|recommend|cashback|coupon)\b/.test(q)) return 'offer_strategy';
+  if (/\b(lapsed|regulars|stopped coming|churn\w*|lost customers|slipping|loyal|who (?:has|have) stopped)\b/.test(q)) return 'lapsed_customers';
   if (/\b(sample size|holdout|power|significan\w*|experiment)\b/.test(q)) return 'experiment_results';
   return 'unanswerable';
 }
@@ -200,7 +200,8 @@ export function findingsFor(agent: SpecialistId, intent: Intent, own: readonly T
       if (has(index, g, 'recommended_breakeven_rate')) {
         out.push(finding(agent, 'estimated', `It needs {{${g}.recommended_breakeven_rate}} of them to come back to break even, against an assumed {{${g}.recommended_return_rate}}; at half the assumed effect its net is {{${g}.recommended_downside_net}}.`));
       }
-      out.push(finding(agent, 'assumed', `These estimates assume {{${g}.baseline_return}} would return anyway and a gross margin of {{${g}.gross_margin}}. Doing nothing costs nothing and earns {{${g}.nothing_net}} extra.`));
+      out.push(finding(agent, 'assumed', `These estimates assume {{${g}.baseline_return}} would return anyway and a gross margin of {{${g}.gross_margin}}.`));
+      out.push(finding(agent, 'estimated', `Doing nothing costs nothing and is expected to earn {{${g}.nothing_net}} extra; some regulars may return anyway.`));
     }
   }
 
