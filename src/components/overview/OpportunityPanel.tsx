@@ -3,7 +3,7 @@ import { useId } from 'react';
 import { Link } from 'react-router';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis, type TooltipContentProps } from 'recharts';
 import type { LapsedOpportunitySummary, OpportunityOverview } from '../../domain/detectors/lapsedSummary';
-import { formatCount, formatINR, formatPercent } from '../../domain/format';
+import { formatCount, formatDays, formatINR, formatPercent } from '../../domain/format';
 import { shortDateLabel } from '../../domain/time';
 import type { ConfidenceLevel } from '../../domain/types';
 import { InfoTip } from '../InfoTip';
@@ -125,8 +125,8 @@ function Found({ summary, startDate, asOfLabel }: { summary: LapsedOpportunitySu
 
             <dl className="mt-6 grid grid-cols-3 gap-4 border-t border-border pt-5">
               <Stat label="Flagged" value={formatCount(summary.customers)} note={`of ${formatCount(opp.regularsTested)} regulars`} />
-              <Stat label="Usual gap" value={`${Math.round(summary.medianTypicalGapDays)} days`} note="between visits" />
-              <Stat label="Current gap" value={`${Math.round(summary.medianCurrentGapDays)} days`} note="since last visit" />
+              <Stat label="Usual gap" value={formatDays(summary.medianTypicalGapDays)} note="between visits" />
+              <Stat label="Current gap" value={formatDays(summary.medianCurrentGapDays)} note="since last visit" />
             </dl>
             {daypartShare !== null && (
               <p className="mt-4 text-sm text-muted">

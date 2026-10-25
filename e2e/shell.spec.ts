@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 
 const ROUTES = [
   { path: '/', nav: 'Overview', heading: /^Sunrise Bakery$/ },
-  { path: '/opportunities', nav: 'Opportunities', heading: /^Opportunities$/ },
+  { path: '/opportunities', nav: 'Opportunities', heading: /may be slipping away$/ },
   { path: '/campaigns', nav: 'Campaign Studio', heading: /^Campaign Studio$/ },
   { path: '/results', nav: 'Results', heading: /^Results$/ },
 ];

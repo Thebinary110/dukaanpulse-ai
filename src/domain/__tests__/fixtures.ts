@@ -1,5 +1,5 @@
 import type { CampaignDraft, Daypart, Transaction } from '../types';
-import { DEFAULT_ASSUMPTIONS, getIntervention } from '../interventions';
+import { DEFAULT_ASSUMPTIONS, getIntervention, returnRateWithUplift } from '../interventions';
 
 let counter = 0;
 /** Minimal transaction for hand-computed fixtures. Amount is in rupees for readability. */
@@ -41,7 +41,7 @@ export function makeDraft(overrides: Partial<CampaignDraft> = {}): CampaignDraft
     treatmentIds: ['C-0001', 'C-0002', 'C-0003', 'C-0004'],
     holdoutIds: ['C-0005'],
     assumptions: DEFAULT_ASSUMPTIONS,
-    assumedReturnRate: intervention.assumedReturnRate,
+    assumedReturnRate: returnRateWithUplift(DEFAULT_ASSUMPTIONS.baselineReturnRate, intervention.assumedUplift),
     ...overrides,
   };
 }

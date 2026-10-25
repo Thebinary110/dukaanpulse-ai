@@ -179,6 +179,17 @@ export function scenarioReducer(state: ScenarioState, event: ScenarioEvent): Sce
 
 // ── Selectors ────────────────────────────────────────────────────────────────
 
+export const STATUS_LABEL: Record<ScenarioStatus, string> = {
+  detected: 'New',
+  reviewing: 'Under review',
+  drafting: 'Draft in progress',
+  awaiting_approval: 'Awaiting your approval',
+  approved: 'Approved',
+  executing: 'Simulating',
+  measured: 'Simulated result ready',
+  rejected: 'Dismissed',
+};
+
 export const SCENARIO_STEPS = ['Detect', 'Review', 'Draft', 'Approve', 'Simulate', 'Measure'] as const;
 
 const STEP_INDEX: Record<ScenarioStatus, number> = {

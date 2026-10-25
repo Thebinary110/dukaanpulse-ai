@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { campaignEconomics } from '../financials';
-import { DEFAULT_ASSUMPTIONS, getIntervention, INTERVENTIONS } from '../interventions';
+import { DEFAULT_ASSUMPTIONS, getIntervention, INTERVENTIONS, returnRateWithUplift } from '../interventions';
 import type { CampaignEconomicsInput } from '../financials';
 
 const base: CampaignEconomicsInput = {
@@ -8,7 +8,7 @@ const base: CampaignEconomicsInput = {
   averageBasketPaise: 25_000, // ₹250
   offer: getIntervention('win-back-30').offer, // ₹30 off ₹200+
   assumedReturnRate: 0.3,
-  assumptions: { ...DEFAULT_ASSUMPTIONS, grossMarginRate: 0.5, baselineReturnRate: 0.1, redemptionRate: 0.8, messageCostPaise: 25 },
+  assumptions: { ...DEFAULT_ASSUMPTIONS, grossMarginRate: 0.5, baselineReturnRate: 0.1, redemptionRate: 0.8, messageCostPaise: 25, followOnVisits: 0 },
 };
 
 describe('campaign economics', () => {
@@ -30,7 +30,11 @@ describe('campaign economics', () => {
 
   it.each(INTERVENTIONS.map((i) => i.id))('holds its accounting identities for %s', (id) => {
     const intervention = getIntervention(id);
-    const e = campaignEconomics({ ...base, offer: intervention.offer, assumedReturnRate: intervention.assumedReturnRate });
+    const e = campaignEconomics({
+      ...base,
+      offer: intervention.offer,
+      assumedReturnRate: returnRateWithUplift(base.assumptions.baselineReturnRate, intervention.assumedUplift),
+    });
     expect(e.incrementalRevenuePaise).toBeCloseTo(e.revenueWithCampaignPaise - e.revenueWithoutCampaignPaise);
     expect(e.totalCostPaise).toBeCloseTo(e.offerCostPaise + e.messageCostPaise);
     expect(e.netIncrementalProfitPaise).toBeCloseTo(e.incrementalMarginPaise - e.totalCostPaise);
@@ -58,6 +62,19 @@ describe('campaign economics', () => {
     const small = campaignEconomics({ ...base, averageBasketPaise: 15_000, assumptions: { ...base.assumptions, redemptionRate: 1 } });
     // All returners redeem, so each spends ₹200, not ₹150.
     expect(small.revenueWithCampaignPaise).toBeCloseTo(100 * 0.3 * 20_000);
+  });
+
+  it('adds follow-on full-price visits for returners on both sides of the comparison', () => {
+    const k = 2;
+    const e = campaignEconomics({ ...base, assumptions: { ...base.assumptions, followOnVisits: k } });
+    // With: 100 × 0.3 × (₹250 + 2 × ₹250) = ₹22,500. Without: 100 × 0.1 × ₹250 × 3 = ₹7,500.
+    expect(e.revenueWithCampaignPaise).toBeCloseTo(2_250_000);
+    expect(e.revenueWithoutCampaignPaise).toBeCloseTo(750_000);
+    // Offer cost is unchanged: follow-on visits are at full price.
+    expect(e.offerCostPaise).toBeCloseTo(72_000);
+    const at = (r: number) =>
+      campaignEconomics({ ...base, assumedReturnRate: r, assumptions: { ...base.assumptions, followOnVisits: k } }).netIncrementalProfitPaise;
+    expect(at(e.breakEvenReturnRate)).toBeCloseTo(0, 6);
   });
 
   it('reports an unreachable break-even when each redemption costs more than it earns', () => {

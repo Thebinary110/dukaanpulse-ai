@@ -7,9 +7,10 @@
  *   B  = average basket                Bo = basket when redeeming = max(B, minimum spend)
  *   m  = gross margin rate             d  = merchant cost per redemption
  *   c  = cost per message (0 when no message is sent)
+ *   k  = follow-on full-price visits a returning customer makes later in the window
  *
- *   Revenue with campaign    = N × rT × (ρ·Bo + (1 − ρ)·B)
- *   Revenue without campaign = N × rB × B
+ *   Revenue with campaign    = N × rT × (ρ·Bo + (1 − ρ)·B + k·B)
+ *   Revenue without campaign = N × rB × B × (1 + k)
  *   Incremental margin       = (with − without) × m
  *   Offer cost               = N × rT × ρ × d   ← includes people who would have returned anyway
  *   Message cost             = N × c
@@ -60,10 +61,11 @@ export function campaignEconomics(input: CampaignEconomicsInput): CampaignEconom
   const bo = redeemingBasketPaise(b, offer);
   const d = offer.costPerRedemptionPaise;
   const c = messageCostPerCustomer(offer, assumptions);
+  const k = assumptions.followOnVisits;
 
-  const basketPerReturner = rho * bo + (1 - rho) * b;
+  const basketPerReturner = rho * bo + (1 - rho) * b + k * b;
   const revenueWithCampaignPaise = n * rT * basketPerReturner;
-  const revenueWithoutCampaignPaise = n * rB * b;
+  const revenueWithoutCampaignPaise = n * rB * b * (1 + k);
   const incrementalRevenuePaise = revenueWithCampaignPaise - revenueWithoutCampaignPaise;
   const incrementalMarginPaise = incrementalRevenuePaise * m;
   const offerCostPaise = n * rT * rho * d;
@@ -71,10 +73,10 @@ export function campaignEconomics(input: CampaignEconomicsInput): CampaignEconom
   const totalCostPaise = offerCostPaise + messageCostPaise;
   const netIncrementalProfitPaise = incrementalMarginPaise - totalCostPaise;
 
-  // Solve net(rT) = 0:  rT × (basketPerReturner·m − ρ·d) = rB·B·m + c
+  // Solve net(rT) = 0:  rT × (basketPerReturner·m − ρ·d) = rB·B·(1 + k)·m + c
   const perReturnerContribution = basketPerReturner * m - rho * d;
   const breakEvenReturnRate =
-    perReturnerContribution > 0 ? (rB * b * m + c) / perReturnerContribution : Number.POSITIVE_INFINITY;
+    perReturnerContribution > 0 ? (rB * b * (1 + k) * m + c) / perReturnerContribution : Number.POSITIVE_INFINITY;
 
   return {
     expectedReturners: n * rT,

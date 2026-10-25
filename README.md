@@ -20,7 +20,14 @@ and measures the result against a holdout group.
   - the detected growth opportunity, with observed evidence and a separately labelled estimate;
   - a recommended next step;
   - sales by time of day and the new vs returning customer mix.
-- **Next:** the Opportunities, Campaign Studio and Results screens still show designed placeholders (Stages 3–5).
+- **Stage 3 (Opportunity Explorer):** done. `/opportunities` shows:
+  - an observed summary, with the estimated exposure kept separate;
+  - an evidence scatter chart with the detector's own flag line;
+  - a sortable, filterable, paginated customer evidence table and the methodology;
+  - a four-option comparison with validated, editable assumptions;
+  - a ranked recommendation, with "Draft campaign" and "Dismiss opportunity".
+  The draft is stored in shared state; Campaign Studio currently shows a summary of it.
+- **Next:** the full Campaign Studio (Stage 4) and Results (Stage 5).
 
 ## Requirements
 
@@ -132,6 +139,14 @@ How to read these results:
 
 **Economics** (`financials.ts`). The offer cost also counts customers who would have returned anyway.
 
+```
+rT  = baseline return rate + offer uplift            (uplift is an explicit, editable assumption)
+Revenue with campaign    = N × rT × (ρ·max(B, minSpend) + (1 − ρ)·B + k·B)
+Revenue without campaign = N × rB × B × (1 + k)       (k = later full-price visits per returner)
+Net incremental profit   = (with − without) × margin − N·rT·ρ·costPerRedemption − N·messageCost
+Break-even rT            = (rB·B·(1 + k)·m + c) / ((ρ·Bo + (1 − ρ)·B + k·B)·m − ρ·d)
+```
+
 - Net incremental profit = (revenue with campaign − revenue without) × margin − offer cost − message cost
 - Break-even return rate is solved in closed form; it is infinite when a redemption costs more than it earns.
 
@@ -140,7 +155,30 @@ All rates and costs in `interventions.ts` are **illustrative assumptions**, not 
 - baseline 14-day return rate 10%;
 - redemption rate 85%;
 - ₹0.25 per message;
-- assumed return rates of 30% for ₹30 off ₹200+, 24% for a free cookie and 17% for double stamps.
+- one later full-price visit per returner;
+- assumed uplifts over the baseline:
+  - +20 points for ₹30 off ₹200+;
+  - +14 points for a free add-on (₹14 ingredient cost);
+  - +7 points for double loyalty stamps (₹4.50 per stamp).
+
+**Decision** (`decision.ts`). Every option is evaluated deterministically on the treatment group: the flagged
+customers minus a 20% holdout. The ranking policy is documented in the file:
+- **Goals:** "Most profit" ranks by expected net incremental profit. "Most customers back" ranks by incremental
+  returners among options that at least break even.
+- **No good option:** if no offer is expected to profit, "do nothing" is recommended.
+- **Close call:** shown when the runner-up is within 15%, or when the recommended option would lose money at half
+  the assumed uplift.
+- **Inputs:** they are validated (`parseBounded`, `optionProblems`). Invalid values are never committed, and an
+  option with inconsistent settings (for example a discount larger than half its minimum spend) is not ranked.
+
+**Shared workspace state** (`state/WorkspaceContext.tsx`, `state/persistence.ts`).
+- **Contents:** the scenario state machine plus the explorer's settings, goal and selected option.
+- **Storage:** kept in React context and mirrored to `sessionStorage`. On load it is validated and discarded if it
+  is malformed or belongs to another opportunity.
+- **Draft campaign:** `START_DRAFT` (or `UPDATE_DRAFT`) stores a full `CampaignDraft` (offer, message,
+  treatment/holdout IDs, assumptions, return rate) for Campaign Studio.
+- **Dismiss:** `REJECT` records the reason. From there, the only ways forward are reopening (`RESET` → `REVIEW`)
+  or a new draft. The approval gate is unchanged.
 
 **Simulation** (`simulator.ts`). This is a seeded simulation.
 - **Split:** customers are split deterministically into treatment and holdout groups.
@@ -162,7 +200,11 @@ Every invalid transition is refused and tested.
 
 ## Known limitations
 
-- **Screens:** Opportunities, Campaign Studio and Results are still placeholders until Stages 3–5.
+- **Screens:** Campaign Studio shows only a summary of the draft, and Results is still a placeholder (Stages 4–5).
+- **Economics window:** the model covers a single 14-day campaign window. It does not value a won-back
+  regular's future months, so net profit figures are small next to the monthly exposure. This is deliberate and
+  conservative.
+- **Downside check:** "If it works half as well" is a simple sensitivity check, not a calibrated probability.
 - **Revenue trend:** daily comparison lines are aligned by position, not by weekday. In the 30-day view a Saturday
   can be compared with a Monday; the tooltip names both dates.
 - **Bundle size:** the JavaScript bundle is about 840 kB (250 kB gzipped; mostly Recharts), and Vite warns about chunk size. This doesn't

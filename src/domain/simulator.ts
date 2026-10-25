@@ -11,6 +11,7 @@
  * 2. For every customer, draws whether they return within the window, on which
  *    day (earlier days are more likely), their basket, and, for treated
  *    customers, whether they redeem the offer.
+ *    Each returner also makes the assumed number of follow-on full-price visits.
  * 3. Measures lift the way a real test would: the treatment group against the
  *    holdout group, which received nothing.
  */
@@ -89,13 +90,14 @@ export function simulateCampaign(
     } else {
       treatment.grossRevenuePaise += basket;
     }
+    treatment.grossRevenuePaise += basket * assumptions.followOnVisits;
   }
 
   const holdout: GroupOutcome = { customers: draft.holdoutIds.length, returned: 0, redeemed: 0, grossRevenuePaise: 0 };
   for (const id of draft.holdoutIds) {
     if (!rng.bernoulli(baselineRate)) continue;
     holdout.returned += 1;
-    holdout.grossRevenuePaise += basketFor(rng, basketByCustomer, id);
+    holdout.grossRevenuePaise += basketFor(rng, basketByCustomer, id) * (1 + assumptions.followOnVisits);
   }
 
   // Lift is measured, as in a real test: treatment versus a holdout-based estimate of "no campaign".

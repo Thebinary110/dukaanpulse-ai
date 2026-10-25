@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatCount, formatINR, formatPercent } from '../format';
+import { formatChance, formatCount, formatDays, formatINR, formatPercent } from '../format';
 
 describe('formatINR', () => {
   it.each([
@@ -62,5 +62,25 @@ describe('formatCount', () => {
     expect(formatCount(123_456)).toBe('1,23,456');
     expect(formatCount(-1_500)).toBe('−1,500');
     expect(formatCount(Number.POSITIVE_INFINITY)).toBe('—');
+  });
+});
+
+describe('formatDays', () => {
+  it('uses one decimal for short intervals and whole days otherwise', () => {
+    expect(formatDays(2.333)).toBe('2.3 days');
+    expect(formatDays(2)).toBe('2 days');
+    expect(formatDays(1)).toBe('1 day');
+    expect(formatDays(0.96)).toBe('1 day');
+    expect(formatDays(30.4)).toBe('30 days');
+    expect(formatDays(Number.NaN)).toBe('—');
+  });
+});
+
+describe('formatChance', () => {
+  it('floors tiny probabilities instead of showing 0.0%', () => {
+    expect(formatChance(0.00004)).toBe('< 0.1%');
+    expect(formatChance(0.023)).toBe('2.3%');
+    expect(formatChance(0)).toBe('0.0%');
+    expect(formatChance(1)).toBe('100.0%');
   });
 });

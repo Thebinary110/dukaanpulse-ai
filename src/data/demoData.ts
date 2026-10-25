@@ -33,3 +33,11 @@ export function getDemoData(): DemoData {
   }
   return cached;
 }
+
+/** Short name for the current opportunity, e.g. "Morning regulars". */
+export function opportunityShortLabel(): string {
+  const { opportunity } = getDemoData();
+  if (opportunity.status !== 'found' || !opportunity.dominantDaypart) return 'Lapsed regulars';
+  const d = opportunity.dominantDaypart;
+  return `${d.charAt(0).toUpperCase()}${d.slice(1)} regulars`;
+}

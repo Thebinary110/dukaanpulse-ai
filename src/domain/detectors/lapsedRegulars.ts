@@ -30,7 +30,7 @@ export const DEFAULT_LAPSED_CONFIG: LapsedDetectorConfig = {
 };
 
 /** Minimum span of history (days between first and last visit) needed to estimate a rate. */
-const MIN_HISTORY_SPAN_DAYS = 28;
+export const MIN_HISTORY_SPAN_DAYS = 28;
 const DAYS_PER_MONTH = 30;
 
 export interface ScoredRegular extends LapsedCustomer {

@@ -133,14 +133,17 @@ export interface Intervention {
   label: string;
   description: string;
   offer: Offer;
-  /** Assumed 14-day return rate among messaged customers. Illustrative, not measured. */
-  assumedReturnRate: number;
+  /**
+   * Assumed extra return rate caused by the offer, on top of the baseline return rate
+   * (customers who would come back anyway). Illustrative, not measured.
+   */
+  assumedUplift: number;
 }
 
 export interface CampaignAssumptions {
   /** Gross margin on bakery sales, as a fraction of the bill before discount. */
   grossMarginRate: number;
-  /** Return rate within the campaign window without any message. */
+  /** Return rate within the campaign window without any message (customers who come back anyway). */
   baselineReturnRate: number;
   /** Share of returning treated customers who use the offer. */
   redemptionRate: number;
@@ -148,6 +151,8 @@ export interface CampaignAssumptions {
   messageCostPaise: number;
   /** Campaign measurement window. */
   windowDays: number;
+  /** Extra full-price visits a returning customer makes later in the window. */
+  followOnVisits: number;
 }
 
 export interface CampaignDraft {

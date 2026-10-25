@@ -72,3 +72,16 @@ export function formatCount(n: number): string {
   const body = grouper(0).format(Math.abs(Math.round(n)));
   return Math.round(n) < 0 ? `${MINUS}${body}` : body;
 }
+
+/** Day counts: one decimal below 10 (e.g. "2.3 days"), whole days above; singular for exactly 1. */
+export function formatDays(days: number): string {
+  if (!Number.isFinite(days)) return EMPTY;
+  const rounded = days < 10 ? Math.round(days * 10) / 10 : Math.round(days);
+  return `${rounded} ${rounded === 1 ? 'day' : 'days'}`;
+}
+
+/** Small probabilities, e.g. 0.00004 → "< 0.1%", 0.023 → "2.3%". */
+export function formatChance(p: number): string {
+  if (!Number.isFinite(p)) return EMPTY;
+  return p > 0 && p < 0.001 ? '< 0.1%' : formatPercent(p);
+}
