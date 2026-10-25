@@ -242,8 +242,94 @@ It also supports reject and reset. Execution is refused unless:
 
 Every invalid transition is refused and tested.
 
+## Ask DukaanPulse: multi-agent layer (Stage 6)
+
+`/ask` answers merchant questions by coordinating specialist agents over the app's own tested calculations.
+Code lives in `src/agents/`.
+
+**Runtime.** A small custom TypeScript orchestrator runs in the browser.
+- **Model:** a local **Ollama** model (`qwen3.6:35b` by default, a mixture-of-experts model on this DGX), reached
+  only through a restricted server endpoint, `server/llmProxy.ts`, inside the Vite dev/preview server. That endpoint
+  has exactly two routes, `GET /api/llm/status` and `POST /api/llm/chat`. The model is fixed server-side,
+  model-management routes are refused, and request size is limited. There are no API keys and no secrets in the browser.
+- **Without a model:** a **rule-based engine** uses the same tools, schemas and reviewer. The UI labels it, never
+  presents it as a model, and it takes over per agent if a model call fails.
+- **Environment:** `DUKAANPULSE_MODEL` and `DUKAANPULSE_OLLAMA_URL` (default `http://127.0.0.1:11434`).
+
+**Flow.**
+1. The Orchestrator plans which specialists to use.
+2. Specialists run in parallel. Each chooses its allowed tools, then writes findings.
+3. The Orchestrator may request a second evidence round (for example, revenue fell, so check lapsed customers).
+4. A cross-check hypothesis is added, and the Orchestrator writes a headline.
+5. The **Risk Reviewer** checks everything (at most one revision).
+6. The answer is assembled.
+
+**Budget:** 2 rounds, 14 tool calls, 12 model calls, 120 s, 45 s per call, 1 retry.
+
+**Numbers are never written by a model.** Agents refer to tool metrics as `{{callId.metricKey}}`, and the app renders
+them with its own formatters. Any digit outside a reference is rejected by the reviewer.
+
+| Agent | Tools it may call | May assert |
+|---|---|---|
+| Orchestrator | none (plans, synthesises) | hypotheses |
+| Business Analyst | `revenue_comparison`, `revenue_drivers`, `daypart_breakdown` | observed, hypothesis |
+| Customer Intelligence | `lapse_evidence`, `customer_mix` | observed, estimated, hypothesis |
+| Growth Strategist | `compare_interventions`, `blanket_discount` | estimated, assumed, hypothesis |
+| Experiment Scientist | `experiment_readiness`, `latest_results` | observed, estimated, assumed, simulated |
+| Action Planner | `prepare_campaign_draft`, `campaign_status` | observed, estimated, assumed |
+| Risk Reviewer | none; rule-based, reads only findings and tool results | — |
+
+**Tools.** All tools are read-only and allowlisted, with strict argument validation. Every result carries:
+- metric values with units;
+- an evidence type (observed / estimated / assumed / simulated);
+- period and baseline;
+- provenance (tool, arguments, dataset seed, as-of day, domain functions used);
+- limitations.
+
+**Runtime policies.**
+- **Offer amounts** come only from the merchant's words. Amounts the model puts in tool arguments are discarded.
+- **Comparison window** comes from the question: a month unless the merchant says a week or a quarter.
+- **Approve/send/pay requests** go to the Action Planner only and produce a draft proposal. A draft is created
+  only when the merchant clicks, through `START_DRAFT` / `UPDATE_DRAFT`. Nothing can approve, send or pay.
+
+**Risk Reviewer rules:**
+1. Citations exist.
+2. References are cited.
+3. No stray numbers.
+4. Evidence type is allowed for the agent and consistent with what it cites.
+5. Causal wording only in hypotheses.
+6. No prediction, proof, certainty, accuracy or significance claims.
+7. No personal reasons for absence.
+8. No real-vs-synthetic confusion.
+9. Synthetic disclosure is present, and estimates come with limitations.
+
+False premises (for example "why did revenue double?") are checked against the data.
+
+**Evaluation.** Nine fixed cases live in `src/agents/eval.ts`:
+- revenue decline
+- morning sales
+- discount for everyone
+- ₹20 what-if
+- last simulated campaign
+- two unanswerable questions
+- false assumption
+- unapproved action
+
+They run as unit tests with the rule-based engine (all pass). Run them against the local model with:
+```bash
+npm run eval:agents        # writes test-results/agent-eval.json
+```
+Last live run with `qwen3.6:35b`: 9/9 passed, about 19 s per question on average (up to about 34 s). The reviewer
+removed 0–3 unsupported model claims per answer, such as invented numbers, causal claims stated as fact, and
+guessed personal reasons.
+
 ## Known limitations
 
+- **Ask DukaanPulse:** model answers take about 10–35 s on this machine, and the rule-based engine is instant. The
+  reviewer checks numbers, citations, evidence types and banned claims, but not the meaning of the wording. A model
+  can still phrase a correct number misleadingly, for example calling all 209 regulars "morning customers".
+  Conversation history lasts only for the page session. The model endpoint exists only under `npm run dev` /
+  `npm run preview`, not in a static deployment.
 - **Results statistics:** power and sample size use normal approximations (exact tests would be more conservative
   at these sizes). The "larger test" can't actually be run in the demo, because the flagged group is fixed at 34.
   Learning history is per browser tab session.
