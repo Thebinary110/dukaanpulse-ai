@@ -20,7 +20,7 @@ export function parseOffer(question: string): OfferOverrides {
   else if (/\b(loyalty|stamps?)\b/.test(q)) out.interventionId = 'double-stamps';
   else if (/\b(do nothing|no offer)\b/.test(q)) out.interventionId = 'no-action';
 
-  const minSpend = q.match(/(?:min(?:imum)?(?: order| spend| bill)?|above|over|on orders? (?:of|above|over)|on)\s*(?:₹|rs\.?|inr)?\s*(\d{2,4})/);
+  const minSpend = q.match(/(?:\bmin(?:imum)?(?: order| spend| bill)?(?: of| is)?|\babove|\bover|\bon orders? (?:of|above|over)|\bon)\s*(?:₹|rs\.?|inr)?\s*(\d{2,4})/);
   if (minSpend && inRange(Number(minSpend[1]), LIMITS.minSpend.min, LIMITS.minSpend.max)) out.minSpendRupees = Number(minSpend[1]);
 
   const amounts = [...q.matchAll(/(?:₹|rs\.?\s?|inr\s?)(\d{1,4})|(\d{1,4})\s?(?:rupees|rs\b|₹)/g)].map((m) => Number(m[1] ?? m[2]));

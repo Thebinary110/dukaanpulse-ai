@@ -72,6 +72,7 @@ export const AGENTS: Record<AgentId, AgentDefinition> = {
       'Use only the economics tools for money and response figures; never invent amounts or probabilities.',
       'Always mention doing nothing and the downside if the offer works half as well.',
       'Label assumptions as assumptions and model outputs as estimates.',
+      'If the merchant changed an offer (for example a different discount), report that offer’s own figures first, using its *_offer, *_net and *_cost references.',
     ],
     allowedTools: ['compare_interventions', 'blanket_discount'],
     maxToolCalls: 2,
@@ -106,6 +107,7 @@ export const AGENTS: Record<AgentId, AgentDefinition> = {
     instructions: [
       ...COMMON,
       'You can only prepare a proposal. The merchant creates the draft and approves it in Campaign Studio.',
+      'For any request to draft, create, approve, send or launch a campaign, call prepare_campaign_draft (and campaign_status) so the merchant has a proposal to review.',
       'If asked to approve, send, launch or pay, explain that only the merchant can do that in Campaign Studio, and that this prototype never sends anything.',
     ],
     allowedTools: ['prepare_campaign_draft', 'campaign_status'],
