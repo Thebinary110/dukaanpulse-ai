@@ -1,0 +1,61 @@
+@import 'tailwindcss';
+@import '@fontsource-variable/inter/index.css';
+@import './tokens.css';
+
+@theme inline {
+  --color-bg: var(--dp-bg);
+  --color-surface: var(--dp-surface);
+  --color-surface-raised: var(--dp-surface-raised);
+  --color-surface-hover: var(--dp-surface-hover);
+  --color-border: var(--dp-border);
+  --color-border-strong: var(--dp-border-strong);
+  --color-text: var(--dp-text);
+  --color-muted: var(--dp-muted);
+  --color-accent: var(--dp-accent);
+  --color-accent-hover: var(--dp-accent-hover);
+  --color-accent-soft: var(--dp-accent-soft);
+  --color-on-accent: var(--dp-on-accent);
+  --color-success: var(--dp-success);
+  --color-success-soft: var(--dp-success-soft);
+  --color-warning: var(--dp-warning);
+  --color-warning-soft: var(--dp-warning-soft);
+  --color-danger: var(--dp-danger);
+  --color-danger-soft: var(--dp-danger-soft);
+  --color-simulated: var(--dp-simulated);
+  --color-simulated-soft: var(--dp-simulated-soft);
+  --color-focus: var(--dp-focus);
+
+  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    @apply bg-bg text-text font-sans;
+    font-feature-settings: 'cv11', 'ss01';
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--dp-focus);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+}

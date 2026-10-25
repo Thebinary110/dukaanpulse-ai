@@ -1,0 +1,41 @@
+/*
+ * Design tokens. Components never use raw colours; they use the semantic
+ * Tailwind colours mapped below (bg-surface, text-muted, …), which read these
+ * variables. A light theme is added by redefining the variables under
+ * :root[data-theme='light'] with no component changes.
+ *
+ * Contrast (WCAG 2.x) is checked by src/styles/tokens.test.ts.
+ */
+:root {
+  color-scheme: dark;
+
+  --dp-bg: #0a0f1e;
+  --dp-surface: #111831;
+  --dp-surface-raised: #18213f;
+  --dp-surface-hover: #1b2546;
+  --dp-border: #26314f;
+  --dp-border-strong: #34426a;
+
+  --dp-text: #e7ebf3;
+  --dp-muted: #9aa4bd;
+
+  --dp-accent: #4c8dff;
+  --dp-accent-hover: #6a9fff;
+  --dp-accent-soft: rgb(76 141 255 / 0.14);
+  /* Text placed on an accent fill. White on #4C8DFF fails AA, so ink is used. */
+  --dp-on-accent: #0a0f1e;
+
+  --dp-success: #34d399;
+  --dp-success-soft: rgb(52 211 153 / 0.14);
+  --dp-warning: #f5b544;
+  --dp-warning-soft: rgb(245 181 68 / 0.14);
+  --dp-danger: #f87171;
+  --dp-danger-soft: rgb(248 113 113 / 0.14);
+  /* Reserved for "synthetic" and "simulated" labels so they are never mistaken for status colours. */
+  --dp-simulated: #b4a0fc;
+  --dp-simulated-soft: rgb(180 160 252 / 0.14);
+
+  --dp-focus: #6a9fff;
+}
+
+/* :root[data-theme='light'] { … } is reserved for the light theme (Stage 6). */
