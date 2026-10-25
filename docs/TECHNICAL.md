@@ -1,4 +1,4 @@
-# DukaanPulse AI
+# DukaanPulse AI — technical notes
 
 **Turn payment signals into profitable merchant actions.**
 
