@@ -83,6 +83,12 @@ pres.addSection({ title: 'Title' });
   s.addImage({ path: path.join(REPO, 'docs', 'assets', 'banner.png'), x: 0, y: 0.55, w: W, h: W * (800 / 2560), altText: 'DukaanPulse AI banner: Turn payment signals into profitable merchant actions' });
   txt(s, 'Evidence-backed decisions for small merchants — with the merchant in control', { x: M + 0.35, y: 4.95, w: 12, h: 0.5, fontSize: 22, color: TEXT });
   txt(s, 'Paytm Build for India AI Hackathon  ·  Merchant Growth AI track', { x: M + 0.35, y: 5.6, w: 12, h: 0.35, fontSize: 15, color: MUTED });
+  txt(s, [
+    { text: 'Live demo  ', options: { bold: true, color: ACCENT } },
+    { text: 'dukaanpulse-ai.vercel.app', options: { color: TEXT, hyperlink: { url: 'https://dukaanpulse-ai.vercel.app' } } },
+    { text: '     Code  ', options: { bold: true, color: ACCENT } },
+    { text: 'github.com/Thebinary110/dukaanpulse-ai', options: { color: TEXT, hyperlink: { url: 'https://github.com/Thebinary110/dukaanpulse-ai' } } },
+  ], { x: M + 0.35, y: 6.15, w: 12, h: 0.35, fontSize: 14 });
   txt(s, 'Working prototype on synthetic data for a fictional bakery. Not affiliated with or endorsed by Paytm.', { x: M + 0.35, y: 6.65, w: 11, h: 0.3, fontSize: 11, color: MUTED, italic: true });
   s.addNotes(
     'SCRIPT (15s): "Every day a shop owner looks at their payments and asks one question: what should I do about this? DukaanPulse AI answers that question with evidence — and leaves the decision with the merchant."\n\n' +
@@ -552,8 +558,15 @@ pres.addSection({ title: 'Close' });
     { text: 'DukaanPulse AI', options: { bold: true, breakLine: true } },
     { text: 'Working prototype · synthetic data · local model + rules fallback · not affiliated with Paytm', options: { fontSize: 12, color: MUTED } },
   ], { x: M + 1.55, y: 5.45, w: 6.3, h: 0.95, fontSize: 18, valign: 'middle' });
+  card(s, M + 8.3, 5.35, 3.83, 1.15, { fill: SURF2, line: ACCENT });
+  txt(s, [
+    { text: 'Live demo', options: { bold: true, color: ACCENT, fontSize: 11, breakLine: true } },
+    { text: 'dukaanpulse-ai.vercel.app', options: { color: TEXT, hyperlink: { url: 'https://dukaanpulse-ai.vercel.app' }, breakLine: true } },
+    { text: 'Code', options: { bold: true, color: ACCENT, fontSize: 11, breakLine: true } },
+    { text: 'github.com/Thebinary110/dukaanpulse-ai', options: { color: TEXT, hyperlink: { url: 'https://github.com/Thebinary110/dukaanpulse-ai' } } },
+  ], { x: M + 8.5, y: 5.42, w: 3.5, h: 1.0, fontSize: 12.5, valign: 'middle' });
   s.addNotes(
-    'SCRIPT (15s): "DukaanPulse turns payment signals into decisions a merchant can trust: every number from tested calculations, every claim checked, every action approved by the merchant. Evidence, not guesses. Decisions, not dashboards. Thank you — we would love to show you anything in more depth."\n\nTRANSITION: Open for questions; keep the app on the Ask page with the rules-only tab ready.',
+    'SCRIPT (15s): "DukaanPulse turns payment signals into decisions a merchant can trust: every number from tested calculations, every claim checked, every action approved by the merchant. Evidence, not guesses. Decisions, not dashboards. Thank you — we would love to show you anything in more depth."\n\nTRANSITION: Open for questions; keep the app on the Ask page with the rules-only tab ready.\n\nLINKS: The live demo (dukaanpulse-ai.vercel.app) runs Ask DukaanPulse in rule-based mode only; the local-model mode runs on our machine.',
   );
 }
 
